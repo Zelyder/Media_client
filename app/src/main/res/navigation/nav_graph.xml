@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/screenIdFragment">
+    <fragment
+        android:id="@+id/screenIdFragment"
+        android:name="com.zelyder.mediaclient.ui.ScreenIdFragment"
+        android:label="fragment_screen_id"
+        tools:layout="@layout/fragment_screen_id" >
+        <action
+            android:id="@+id/action_screenIdFragment_to_playerFragment"
+            app:destination="@id/playerFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/playerFragment"
+        android:name="com.zelyder.mediaclient.ui.PlayerFragment"
+        android:label="PlayerFragment" >
+        <argument
+            android:name="screenId"
+            app:argType="integer"
+            android:defaultValue="1" />
+    </fragment>
+</navigation>

@@ -5,5 +5,8 @@
     <string name="media_url_gif">https://i.gifer.com/embedded/download/7RXn.gif</string>
     <string name="media_url_jpeg">https://c.wallhere.com/photos/02/f5/2048x1365_px_cliff_clouds_forest_grass_hdr_landscape_mountain-698862.jpg!d</string>
     <string name="media_url_dash"><![CDATA[https://www.youtube.com/api/manifest/dash/id/bf5bb2419360daf1/source/youtube?as=fmp4_audio_clear,fmp4_sd_hd_clear&sparams=ip,ipbits,expire,source,id,as&ip=0.0.0.0&ipbits=0&expire=19000000000&signature=51AF5F39AB0CEC3E5497CD9C900EBFEAECCCB5C7.8506521BFC350652163895D4C26DEE124209AA9E&key=ik0]]></string>
+    <string name="screen_id_hint">Screen id</string>
+    <string name="screen_id_btn_text">Next</string>
+    <string name="screen_id_et_error_msg">Invalid input. Please enter a number from 1 to 6</string>
 
 </resources>

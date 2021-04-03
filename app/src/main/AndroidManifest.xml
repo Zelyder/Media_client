@@ -23,14 +23,13 @@
             android:screenOrientation="landscape">
 
         </activity>
-        <activity android:name=".ui.PlayerActivity"
+        <activity android:name=".ui.MainActivity"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-
         </activity>
     </application>
 

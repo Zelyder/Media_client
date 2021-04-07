@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -19,9 +20,12 @@ import com.google.android.exoplayer2.util.Util
 import com.squareup.picasso.Picasso
 import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.MEDIA_BASE_URL
+import com.zelyder.mediaclient.viewModelFactoryProvider
 
 
 class PlayerFragment : Fragment() {
+
+    private val viewModel: PlayerViewModel by viewModels { viewModelFactoryProvider().viewModelFactory() }
     private val args: PlayerFragmentArgs by navArgs()
 
     private var playerView: PlayerView? = null
@@ -31,7 +35,7 @@ class PlayerFragment : Fragment() {
     private var currentWindow = 0
     private var playbackPosition: Long = 0
     private var url = ""
-    private val isVideo = false
+    private var isVideo = false
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -43,52 +47,81 @@ class PlayerFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        url = "${MEDIA_BASE_URL}${args.screenId}"
+//        url = "${MEDIA_BASE_URL}${args.screenId}"
 
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
-    }
 
-    override fun onStart() {
-        super.onStart()
-        if (isVideo) {
-            switchToVideo()
-            if (Util.SDK_INT > 23) {
+        viewModel.media.observe(this.viewLifecycleOwner) {
+            url = it.url
+            if(it.type == "image") {
+                isVideo = false
+                switchToImage()
+               initializeImage()
+            }else if (it.type == "video") {
+                isVideo = true
+                switchToVideo()
                 initializePlayer()
             }
-        } else {
-            switchToImage()
-            initializeImage()
         }
+
+        viewModel.updateMedia(args.screenId)
+
     }
 
     override fun onResume() {
         super.onResume()
         hideSystemUi()
-        if (isVideo) {
-            if (Util.SDK_INT <= 23 || player == null) {
-                initializePlayer()
-            }
-        }
     }
 
-    override fun onPause() {
-        super.onPause()
-        if (Util.SDK_INT <= 23 && isVideo) {
-            releasePlayer()
-        }
-    }
+    //    override fun onStart() {
+//        super.onStart()
+//        if (isVideo) {
+//            switchToVideo()
+//            if (Util.SDK_INT > 23) {
+//                initializePlayer()
+//            }
+//        } else {
+//            switchToImage()
+//            initializeImage()
+//        }
+//    }
+//
+//    override fun onResume() {
+//        super.onResume()
+//        hideSystemUi()
+//        if (isVideo) {
+//            if (Util.SDK_INT <= 23 || player == null) {
+//                initializePlayer()
+//            }
+//        }
+//    }
+//
+//
+//
+//    override fun onPause() {
+//        super.onPause()
+//        if (Util.SDK_INT <= 23 && isVideo) {
+//            releasePlayer()
+//        }
+//    }
+//
+//    override fun onStop() {
+//        super.onStop()
+//        if (isVideo) {
+//            if (Util.SDK_INT > 23) {
+//                releasePlayer()
+//            }
+//        } else if (imageView != null) {
+//            Glide.with(this).clear(imageView!!)
+//            imageView = null
+//        }
+//    }
 
-    override fun onStop() {
-        super.onStop()
-        if (isVideo) {
-            if (Util.SDK_INT > 23) {
-                releasePlayer()
-            }
-        } else if (imageView != null) {
-            Glide.with(this).clear(imageView!!)
-            imageView = null
-        }
+    override fun onDestroyView() {
+        super.onDestroyView()
+        releasePlayer()
+        releaseImage()
     }
 
     private fun initializePlayer() {
@@ -103,6 +136,7 @@ class PlayerFragment : Fragment() {
         }
     }
 
+
     private fun initializeImage() {
         if (imageView != null) {
             Glide.with(this)
@@ -114,7 +148,7 @@ class PlayerFragment : Fragment() {
                 //.override(600, 200)
                 .into(imageView!!)
 //            Picasso.get()
-//                .load("https://i.gifer.com/9z8X.gif")
+//                .load(url)
 //                .placeholder(R.drawable.logo)
 //                .into(imageView)
         }
@@ -127,6 +161,13 @@ class PlayerFragment : Fragment() {
             playWhenReady = player!!.playWhenReady
             player?.release()
             player = null
+        }
+    }
+
+    private fun releaseImage() {
+        if (imageView != null) {
+            Glide.with(this).clear(imageView!!)
+            imageView = null
         }
     }
 

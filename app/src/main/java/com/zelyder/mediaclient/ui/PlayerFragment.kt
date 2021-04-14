@@ -3,10 +3,12 @@ package com.zelyder.mediaclient.ui
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -18,9 +20,14 @@ import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
 import com.google.android.exoplayer2.util.Util
 import com.squareup.picasso.Picasso
+import com.zelyder.mediaclient.MyApp
 import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.MEDIA_BASE_URL
 import com.zelyder.mediaclient.viewModelFactoryProvider
+import io.socket.client.Socket
+import io.socket.emitter.Emitter
+import org.json.JSONException
+import org.json.JSONObject
 
 
 class PlayerFragment : Fragment() {
@@ -36,6 +43,10 @@ class PlayerFragment : Fragment() {
     private var playbackPosition: Long = 0
     private var url = ""
     private var isVideo = false
+
+    private lateinit var mSocket: Socket
+    private lateinit var onNewMessage: Emitter.Listener
+    private val refreshEvent = "screen refresh"
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -63,6 +74,28 @@ class PlayerFragment : Fragment() {
                 switchToVideo()
                 initializePlayer()
             }
+        }
+
+        // live update
+        val instance = requireActivity().application as MyApp
+        val mSocket: Socket = instance.getSocketInstance()
+        val onNewMessage = Emitter.Listener { args ->
+            activity?.runOnUiThread(Runnable {
+                val data = args[0] as JSONObject
+                try {
+                    viewModel.updateMedia(this.args.screenId)
+                    Log.d("LOL", data.toString())
+                } catch (e: JSONException) {
+                    return@Runnable
+                }
+            })
+        }
+
+        mSocket.on(refreshEvent, onNewMessage)
+        mSocket.connect()
+
+        if (mSocket.connected()){
+            Toast.makeText(requireContext(), "Socket Connected!!", Toast.LENGTH_SHORT).show()
         }
 
         viewModel.updateMedia(args.screenId)
@@ -122,6 +155,12 @@ class PlayerFragment : Fragment() {
         super.onDestroyView()
         releasePlayer()
         releaseImage()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        mSocket.disconnect()
+        mSocket.off(refreshEvent, onNewMessage)
     }
 
     private fun initializePlayer() {

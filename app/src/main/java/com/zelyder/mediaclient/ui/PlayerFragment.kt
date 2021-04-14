@@ -48,6 +48,31 @@ class PlayerFragment : Fragment() {
     private lateinit var onNewMessage: Emitter.Listener
     private val refreshEvent = "screen refresh"
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // live update
+        val instance = requireActivity().application as MyApp
+        val mSocket: Socket = instance.getSocketInstance()
+        val onNewMessage = Emitter.Listener { args ->
+            activity?.runOnUiThread(Runnable {
+                val data = args[0] as JSONObject
+                try {
+                    viewModel.updateMedia(this.args.screenId)
+                    Log.d("LOL", data.toString())
+                } catch (e: JSONException) {
+                    return@Runnable
+                }
+            })
+        }
+
+        mSocket.on(refreshEvent, onNewMessage)
+        mSocket.connect()
+
+        if (mSocket.connected()){
+            Toast.makeText(requireContext(), "Socket Connected!!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -76,27 +101,7 @@ class PlayerFragment : Fragment() {
             }
         }
 
-        // live update
-        val instance = requireActivity().application as MyApp
-        val mSocket: Socket = instance.getSocketInstance()
-        val onNewMessage = Emitter.Listener { args ->
-            activity?.runOnUiThread(Runnable {
-                val data = args[0] as JSONObject
-                try {
-                    viewModel.updateMedia(this.args.screenId)
-                    Log.d("LOL", data.toString())
-                } catch (e: JSONException) {
-                    return@Runnable
-                }
-            })
-        }
 
-        mSocket.on(refreshEvent, onNewMessage)
-        mSocket.connect()
-
-        if (mSocket.connected()){
-            Toast.makeText(requireContext(), "Socket Connected!!", Toast.LENGTH_SHORT).show()
-        }
 
         viewModel.updateMedia(args.screenId)
 

@@ -5,6 +5,12 @@ plugins {
     id 'androidx.navigation.safeargs.kotlin'
 }
 
+configurations {
+    all {
+        exclude group: 'org.json', module: 'json'
+    }
+}
+
 android {
     compileSdkVersion 30
     buildToolsVersion "30.0.3"
@@ -59,6 +65,7 @@ dependencies {
     implementation 'com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0'
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.1"
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation 'com.github.nkzawa:socket.io-client:0.3.0'
 
 
     // Navigation component

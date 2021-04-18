@@ -174,7 +174,7 @@ class PlayerFragment : Fragment() {
         val mediaItem: MediaItem = MediaItem.fromUri(url)
         player?.apply {
             setMediaItem(mediaItem)
-            playWhenReady = playWhenReady
+            playWhenReady = true
             seekTo(currentWindow, playbackPosition)
             prepare()
         }

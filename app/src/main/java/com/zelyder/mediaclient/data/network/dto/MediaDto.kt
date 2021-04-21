@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 data class MediaDto (
     @SerialName("media_type")
     val mediaType: String,
-    @SerialName("path")
-    val path: String
+    @SerialName("url")
+    val url: String,
+    @SerialName("duration")
+    val duration: Long
 )

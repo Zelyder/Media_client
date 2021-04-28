@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.fragment.app.Fragment
 import com.zelyder.mediaclient.data.BASE_URL
+import com.zelyder.mediaclient.data.MEDIA_BASE_URL
 import com.zelyder.mediaclient.data.network.MediaNetworkModule
 import com.zelyder.mediaclient.domain.datasources.RemoteDataSourceImpl
 import com.zelyder.mediaclient.domain.repositories.MediaRepository
@@ -27,11 +28,7 @@ class MyApp: Application(), ViewModelFactoryProvider {
 
         initRepositories()
 
-        try {
-            iSocket = IO.socket(BASE_URL)
-        } catch (e: URISyntaxException) {
-            throw RuntimeException(e)
-        }
+        updateSocket()
     }
 
 
@@ -49,6 +46,22 @@ class MyApp: Application(), ViewModelFactoryProvider {
     override fun viewModelFactory(): ViewModelFactory  = viewModelFactory
 
     fun getSocketInstance(): Socket = iSocket
+
+    private fun updateSocket(){
+        try {
+            iSocket = IO.socket(BASE_URL)
+        } catch (e: URISyntaxException) {
+            throw RuntimeException(e)
+        }
+    }
+
+    @ExperimentalSerializationApi
+    fun updateIp(ip: String) {
+        BASE_URL = ip
+        MEDIA_BASE_URL = "${BASE_URL}screen/"
+        updateSocket()
+        initRepositories()
+    }
 }
 
 fun Context.viewModelFactoryProvider() = (applicationContext as MyApp)

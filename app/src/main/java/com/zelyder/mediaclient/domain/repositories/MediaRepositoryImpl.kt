@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 class MediaRepositoryImpl(private val remoteDataSource: RemoteDataSource): MediaRepository{
     override suspend fun getMedia(id: Int): Media = withContext(Dispatchers.IO){
 //        Media(remoteDataSource.getMediaPath(id), remoteDataSource.getMediaType(id).mediaType)
-//        TestDataSource().getVideoMedia()
+//        TestDataSource().getGifMedia()
         remoteDataSource.getMedia(id).toMedia()
     }
 

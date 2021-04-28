@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Log
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +17,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
+import com.bumptech.glide.annotation.GlideModule
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.GlideException
@@ -112,7 +114,11 @@ class PlayerFragment : Fragment() {
             if(it.type == "img" || it.type == "gif") {
                 isVideo = false
                 switchToImage()
-               initializeImage()
+                if (it.type == "gif") {
+                    initializeImage(true)
+                } else {
+                    initializeImage()
+                }
             }else if (it.type == "vid") {
                 isVideo = true
                 switchToVideo()
@@ -209,16 +215,15 @@ class PlayerFragment : Fragment() {
     }
 
 
-    private fun initializeImage() {
+    private fun initializeImage(isGif: Boolean = false) {
         if (imageView != null) {
-            Glide.with(this)
+             Glide.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
                 .placeholder(R.drawable.logo)
                 .skipMemoryCache(true)
                 .diskCacheStrategy(DiskCacheStrategy.NONE)
-                //.override(600, 200)
-                .addListener(object : RequestListener<Drawable> {
+                .listener(object : RequestListener<Drawable> {
                     override fun onLoadFailed(
                         e: GlideException?,
                         model: Any?,
@@ -244,6 +249,7 @@ class PlayerFragment : Fragment() {
 //            Picasso.get()
 //                .load(url)
 //                .placeholder(R.drawable.logo)
+//                .error(R.drawable.ic_close)
 //                .into(imageView)
 
         }

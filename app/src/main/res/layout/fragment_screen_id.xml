@@ -11,23 +11,40 @@
         android:id="@+id/etScreenId"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="52dp"
+        android:autofillHints="@string/screen_id_hint"
         android:ems="10"
         android:hint="@string/screen_id_hint"
         android:inputType="phone"
         android:textAlignment="center"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <EditText
+        android:id="@+id/etIp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:autofillHints="@string/screen_id_hint"
+        android:ems="10"
+        android:hint="@string/screen_ip_hint"
+        android:inputType="phone"
+        android:textAlignment="center"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:autofillHints="@string/screen_id_hint" />
+        app:layout_constraintTop_toBottomOf="@+id/etScreenId"
+        app:layout_constraintVertical_bias="0.07" />
 
     <Button
         android:id="@+id/btnScreenId"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:text="@string/screen_id_btn_text"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/etScreenId" />
+        app:layout_constraintTop_toBottomOf="@+id/etIp" />
 </androidx.constraintlayout.widget.ConstraintLayout>

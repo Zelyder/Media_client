@@ -9,8 +9,7 @@ import kotlinx.coroutines.withContext
 
 class RemoteDataSourceImpl(val mediaApi: MediaApi): RemoteDataSource {
     override suspend fun getMedia(id: Int): MediaDto = withContext(Dispatchers.IO){
-        //TODO: replace this
-        MediaDto("", "")
+        mediaApi.getMedia(id)
     }
 
     override suspend fun getMediaPath(id: Int): String  = withContext(Dispatchers.IO){

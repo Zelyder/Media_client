@@ -6,44 +6,46 @@ import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Log
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
-import com.bumptech.glide.annotation.GlideModule
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
-import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
-import com.google.android.exoplayer2.util.Util
-import com.squareup.picasso.Picasso
 import com.zelyder.mediaclient.MyApp
 import com.zelyder.mediaclient.R
-import com.zelyder.mediaclient.data.MEDIA_BASE_URL
+import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
+import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
 import com.zelyder.mediaclient.domain.models.FinishedResult
 import com.zelyder.mediaclient.domain.models.UpdateResult
 import com.zelyder.mediaclient.viewModelFactoryProvider
+import io.socket.client.IO
+import io.socket.client.Manager
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromJsonElement
+import okhttp3.OkHttpClient
 import org.json.JSONException
 import org.json.JSONObject
+import java.net.URISyntaxException
+import java.security.KeyManagementException
+import java.security.NoSuchAlgorithmException
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 
 
 class PlayerFragment : Fragment() {
@@ -60,22 +62,27 @@ class PlayerFragment : Fragment() {
     private var url = ""
     private var duration: Long = 0L
     private var isVideo = false
+    private val TAG = "PlayerFragment"
 
-    private lateinit var mSocket: Socket
+    private  var mSocket: Socket? = null
+    private lateinit var mManager: Manager
     private lateinit var onNewMessage: Emitter.Listener
     private val refreshEvent = "screen refresh"
     private val finishedEvent = "finished playing"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
         val instance = requireActivity().application as MyApp
+
         mSocket = instance.getSocketInstance()
         val onNewMessage = Emitter.Listener { args ->
             activity?.runOnUiThread(Runnable {
                 val data = Json.decodeFromString<UpdateResult>((args[0] as JSONObject).toString())
                 try {
-                    if(data.screen_number == 0 || data.screen_number == this.args.screenId) {
+                    if (data.screen_number == 0 || data.screen_number == this.args.screenId) {
                         viewModel.updateMedia(this.args.screenId)
                     }
                     Log.d("LOL", data.toString())
@@ -84,11 +91,30 @@ class PlayerFragment : Fragment() {
                 }
             })
         }
+        mSocket?.on(Socket.EVENT_CONNECT) {
+            Log.d(TAG, "connected to the backend")
+//            Toast.makeText(requireContext(), "Socket Connected!!", Toast.LENGTH_SHORT).show()
+            mSocket?.on(refreshEvent, onNewMessage)
+        }?.on(
+            Socket.EVENT_DISCONNECT
+        ) { Log.d(TAG, "Socket disconnected") }?.on(
+            Socket.EVENT_CONNECT_ERROR
+        ) { args ->
+            Log.d(TAG, "Caught EVENT_ERROR")
+            for (obj in args) {
+                Log.d(TAG, "Errors :: $obj")
+            }
+        }?.on(Socket.EVENT_CONNECT_ERROR) { args ->
+//            Toast.makeText(requireContext(), "Connection error!!", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "Caught EVENT_CONNECT_ERROR")
+            for (obj in args) {
+                Log.d(TAG, "Errors :: $obj")
+            }
+        }
+        Log.d(TAG, "Connecting socket")
+        mSocket?.connect()
 
-        mSocket.on(refreshEvent, onNewMessage)
-        mSocket.connect()
-
-        if (mSocket.connected()){
+        if (mSocket?.connected() == true){
             Toast.makeText(requireContext(), "Socket Connected!!", Toast.LENGTH_SHORT).show()
         }
     }
@@ -187,8 +213,8 @@ class PlayerFragment : Fragment() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mSocket.disconnect()
-        mSocket.off(refreshEvent, onNewMessage)
+        mSocket?.disconnect()
+        mSocket?.off(refreshEvent, onNewMessage)
     }
 
     private fun initializePlayer() {
@@ -198,9 +224,9 @@ class PlayerFragment : Fragment() {
         player?.addListener(object : Player.EventListener {
             override fun onPlaybackStateChanged(state: Int) {
                 super.onPlaybackStateChanged(state)
-                if(state == Player.STATE_ENDED) {
+                if (state == Player.STATE_ENDED) {
                     elementEnd()
-                    Log.d("LOL","Video end")
+                    Log.d("LOL", "Video end")
                 }
             }
         })
@@ -213,6 +239,7 @@ class PlayerFragment : Fragment() {
             prepare()
         }
     }
+
 
 
     private fun initializeImage(isGif: Boolean = false) {
@@ -230,7 +257,8 @@ class PlayerFragment : Fragment() {
                         target: Target<Drawable>?,
                         isFirstResource: Boolean
                     ): Boolean {
-                        Toast.makeText(requireContext(), "Load image failed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(requireContext(), "Load image failed", Toast.LENGTH_SHORT)
+                            .show()
                         return false
                     }
 
@@ -257,13 +285,13 @@ class PlayerFragment : Fragment() {
 
     private fun startTimer(duration: Long) {
         if(duration != 0L) {
-            val timer = object: CountDownTimer(duration*1000, 1000) {
+            val timer = object: CountDownTimer(duration * 1000, 1000) {
                 override fun onTick(millisUntilFinished: Long) {
 
                 }
                 override fun onFinish() {
                     elementEnd()
-                    Log.d("LOL","" + Json.encodeToString(FinishedResult(args.screenId)))
+                    Log.d("LOL", "" + Json.encodeToString(FinishedResult(args.screenId)))
                 }
             }
             timer.start()
@@ -281,7 +309,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun elementEnd() {
-        mSocket.emit(finishedEvent, Json.encodeToString(FinishedResult(args.screenId)))
+        mSocket?.emit(finishedEvent, Json.encodeToString(FinishedResult(args.screenId)))
     }
 
     private fun releaseImage() {
@@ -310,4 +338,6 @@ class PlayerFragment : Fragment() {
         imageView?.visibility = View.VISIBLE
         playerView?.visibility = View.GONE
     }
+
+
 }

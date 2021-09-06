@@ -24,5 +24,8 @@
         <argument
             android:name="serverIp"
             app:argType="string" />
+        <action
+            android:id="@+id/action_playerFragment_to_screenIdFragment"
+            app:destination="@id/screenIdFragment" />
     </fragment>
 </navigation>

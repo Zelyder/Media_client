@@ -70,9 +70,10 @@ class PlayerFragment : Fragment() {
         hubConnection.on(
             "Refresh",
             { message: String ->
-
                 Log.d("LOL", "New Message: $message")
-                viewModel.updateMedia(message.toInt())
+                if (message.toInt() == args.screenId){
+                    viewModel.updateMedia(message.toInt())
+                }
             },
             String::class.java
         )
@@ -164,11 +165,12 @@ class PlayerFragment : Fragment() {
 
 
     private fun initializeImage(isGif: Boolean = false) {
+        // TODO: добавить настройку обрезать/растянуть/без изменений
         if (imageView != null) {
             Glide.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
-                .placeholder(R.drawable.logo)
+//                .placeholder(R.drawable.logo)
                 .skipMemoryCache(true)
                 .diskCacheStrategy(DiskCacheStrategy.NONE)
                 .listener(object : RequestListener<Drawable> {
@@ -183,6 +185,7 @@ class PlayerFragment : Fragment() {
                         return false
                     }
 
+
                     override fun onResourceReady(
                         resource: Drawable?,
                         model: Any?,
@@ -190,6 +193,7 @@ class PlayerFragment : Fragment() {
                         dataSource: DataSource?,
                         isFirstResource: Boolean
                     ): Boolean {
+//                        Glide.get(requireContext()).clearMemory()
                         startTimer(duration)
                         return false
                     }

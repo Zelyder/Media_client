@@ -263,6 +263,7 @@ class PlayerFragment : Fragment() {
     private fun switchToImage() {
         imageView?.visibility = View.VISIBLE
         playerView?.visibility = View.GONE
+        releasePlayer()
     }
 
 

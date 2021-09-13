@@ -5,6 +5,5 @@ import com.zelyder.mediaclient.domain.models.Media
 
 fun MediaDto.toMedia(): Media = Media(
     url = url,
-    type = mediaType,
-    duration = duration
+    type = mediaType
 )

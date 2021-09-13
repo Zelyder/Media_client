@@ -24,28 +24,16 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
-import com.zelyder.mediaclient.MyApp
+import com.microsoft.signalr.HubConnection
+import com.microsoft.signalr.HubConnectionBuilder
 import com.zelyder.mediaclient.R
+import com.zelyder.mediaclient.data.BASE_URL
 import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
 import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
 import com.zelyder.mediaclient.domain.models.FinishedResult
-import com.zelyder.mediaclient.domain.models.UpdateResult
 import com.zelyder.mediaclient.viewModelFactoryProvider
-import io.socket.client.IO
-import io.socket.client.Manager
-import io.socket.client.Socket
-import io.socket.emitter.Emitter
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import okhttp3.OkHttpClient
-import org.json.JSONException
-import org.json.JSONObject
-import java.net.URISyntaxException
-import java.security.KeyManagementException
-import java.security.NoSuchAlgorithmException
-import java.security.SecureRandom
-import java.security.cert.X509Certificate
 
 
 class PlayerFragment : Fragment() {
@@ -64,9 +52,8 @@ class PlayerFragment : Fragment() {
     private var isVideo = false
     private val TAG = "PlayerFragment"
 
-    private  var mSocket: Socket? = null
-    private lateinit var mManager: Manager
-    private lateinit var onNewMessage: Emitter.Listener
+    private lateinit var hubConnection: HubConnection
+
     private val refreshEvent = "screen refresh"
     private val finishedEvent = "finished playing"
 
@@ -75,48 +62,29 @@ class PlayerFragment : Fragment() {
 
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
-        val instance = requireActivity().application as MyApp
+        hubConnection = HubConnectionBuilder.create("${BASE_URL}refresh")
+            .build()
 
-        mSocket = instance.getSocketInstance()
-        val onNewMessage = Emitter.Listener { args ->
-            activity?.runOnUiThread(Runnable {
-                val data = Json.decodeFromString<UpdateResult>((args[0] as JSONObject).toString())
-                try {
-                    if (data.screen_number == 0 || data.screen_number == this.args.screenId) {
-                        viewModel.updateMedia(this.args.screenId)
-                    }
-                    Log.d("LOL", data.toString())
-                } catch (e: JSONException) {
-                    return@Runnable
-                }
-            })
-        }
-        mSocket?.on(Socket.EVENT_CONNECT) {
-            Log.d(TAG, "connected to the backend")
-//            Toast.makeText(requireContext(), "Socket Connected!!", Toast.LENGTH_SHORT).show()
-            mSocket?.on(refreshEvent, onNewMessage)
-        }?.on(
-            Socket.EVENT_DISCONNECT
-        ) { Log.d(TAG, "Socket disconnected") }?.on(
-            Socket.EVENT_CONNECT_ERROR
-        ) { args ->
-            Log.d(TAG, "Caught EVENT_ERROR")
-            for (obj in args) {
-                Log.d(TAG, "Errors :: $obj")
-            }
-        }?.on(Socket.EVENT_CONNECT_ERROR) { args ->
-//            Toast.makeText(requireContext(), "Connection error!!", Toast.LENGTH_SHORT).show()
-            Log.d(TAG, "Caught EVENT_CONNECT_ERROR")
-            for (obj in args) {
-                Log.d(TAG, "Errors :: $obj")
-            }
-        }
-        Log.d(TAG, "Connecting socket")
-        mSocket?.connect()
 
-        if (mSocket?.connected() == true){
-            Toast.makeText(requireContext(), "Socket Connected!!", Toast.LENGTH_SHORT).show()
-        }
+
+        hubConnection.on(
+            "Refresh",
+            { message: String ->
+
+                Log.d("LOL", "New Message: $message")
+                viewModel.updateMedia(message.toInt())
+            },
+            String::class.java
+        )
+
+        //This is a blocking call
+
+        //This is a blocking call
+        hubConnection.start()
+
+        println("New Message: $")
+
+
     }
 
     override fun onCreateView(
@@ -136,8 +104,7 @@ class PlayerFragment : Fragment() {
 
         viewModel.media.observe(this.viewLifecycleOwner) {
             url = it.url
-            duration = it.duration
-            if(it.type == "img" || it.type == "gif") {
+            if (it.type == "img" || it.type == "gif") {
                 isVideo = false
                 switchToImage()
                 if (it.type == "gif") {
@@ -145,7 +112,7 @@ class PlayerFragment : Fragment() {
                 } else {
                     initializeImage()
                 }
-            }else if (it.type == "vid") {
+            } else if (it.type == "vid") {
                 isVideo = true
                 switchToVideo()
                 initializePlayer()
@@ -161,60 +128,15 @@ class PlayerFragment : Fragment() {
         hideSystemUi()
     }
 
-    //    override fun onStart() {
-//        super.onStart()
-//        if (isVideo) {
-//            switchToVideo()
-//            if (Util.SDK_INT > 23) {
-//                initializePlayer()
-//            }
-//        } else {
-//            switchToImage()
-//            initializeImage()
-//        }
-//    }
-//
-//    override fun onResume() {
-//        super.onResume()
-//        hideSystemUi()
-//        if (isVideo) {
-//            if (Util.SDK_INT <= 23 || player == null) {
-//                initializePlayer()
-//            }
-//        }
-//    }
-//
-//
-//
-//    override fun onPause() {
-//        super.onPause()
-//        if (Util.SDK_INT <= 23 && isVideo) {
-//            releasePlayer()
-//        }
-//    }
-//
-//    override fun onStop() {
-//        super.onStop()
-//        if (isVideo) {
-//            if (Util.SDK_INT > 23) {
-//                releasePlayer()
-//            }
-//        } else if (imageView != null) {
-//            Glide.with(this).clear(imageView!!)
-//            imageView = null
-//        }
-//    }
+    override fun onDestroy() {
+        super.onDestroy()
+        hubConnection.stop()
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()
         releasePlayer()
         releaseImage()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        mSocket?.disconnect()
-        mSocket?.off(refreshEvent, onNewMessage)
     }
 
     private fun initializePlayer() {
@@ -241,10 +163,9 @@ class PlayerFragment : Fragment() {
     }
 
 
-
     private fun initializeImage(isGif: Boolean = false) {
         if (imageView != null) {
-             Glide.with(this)
+            Glide.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
                 .placeholder(R.drawable.logo)
@@ -284,11 +205,12 @@ class PlayerFragment : Fragment() {
     }
 
     private fun startTimer(duration: Long) {
-        if(duration != 0L) {
-            val timer = object: CountDownTimer(duration * 1000, 1000) {
+        if (duration != 0L) {
+            val timer = object : CountDownTimer(duration * 1000, 1000) {
                 override fun onTick(millisUntilFinished: Long) {
 
                 }
+
                 override fun onFinish() {
                     elementEnd()
                     Log.d("LOL", "" + Json.encodeToString(FinishedResult(args.screenId)))
@@ -309,7 +231,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun elementEnd() {
-        mSocket?.emit(finishedEvent, Json.encodeToString(FinishedResult(args.screenId)))
+//        mSocket?.emit(finishedEvent, Json.encodeToString(FinishedResult(args.screenId)))
     }
 
     private fun releaseImage() {
@@ -338,6 +260,8 @@ class PlayerFragment : Fragment() {
         imageView?.visibility = View.VISIBLE
         playerView?.visibility = View.GONE
     }
+
+
 
 
 }

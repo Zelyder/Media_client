@@ -61,10 +61,9 @@ dependencies {
     implementation 'com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0'
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.1"
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-    //implementation 'com.github.nkzawa:socket.io-client:0.3.0'
-    implementation ('io.socket:socket.io-client:2.0.0') {
-        exclude group: 'org.json', module: 'json'
-    }
+    // socket
+    implementation 'com.smartarmenia:dotnetcoresignalrclientjava:1.14'
+    implementation 'com.microsoft.signalr:signalr:1.0.0'
 
 
     // Navigation component

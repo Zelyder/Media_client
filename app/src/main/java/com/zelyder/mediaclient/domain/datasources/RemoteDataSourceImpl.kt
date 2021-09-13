@@ -13,7 +13,7 @@ class RemoteDataSourceImpl(val mediaApi: MediaApi): RemoteDataSource {
     }
 
     override suspend fun getMediaPath(id: Int): String  = withContext(Dispatchers.IO){
-        "${BASE_URL}screen_media/$id/file"
+        "${BASE_URL}api/screens/$id/content"
     }
 
     override suspend fun getMediaType(id: Int): MediaTypeDto = withContext(Dispatchers.IO) {

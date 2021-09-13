@@ -102,8 +102,8 @@ class ScreenIdFragment : Fragment() {
                 btnOk.isActivated = false
                 GlobalScope.launch(Dispatchers.Main) {4
                     val strIp = etIp.text.toString()
-                    val isConnect = isHostAvailable(clearUrlToIp(strIp), getPort(strIp) ?: 0, 1000)
-                    if (isConnect) {
+//                    val isConnect = isHostAvailable(clearUrlToIp(strIp), getPort(strIp) ?: 0, 1000)
+                    if (true) {
                         toPlayerFragment(id, etIp.text.toString())
                     } else {
                         etIp.error = "Ip is not responding"

@@ -71,7 +71,7 @@ class PlayerFragment : Fragment() {
             "Refresh",
             { message: String ->
                 Log.d("LOL", "New Message: $message")
-                if (message.toInt() == args.screenId){
+                if (message.toInt() == args.screenId) {
                     viewModel.updateMedia(message.toInt())
                 }
             },
@@ -108,11 +108,7 @@ class PlayerFragment : Fragment() {
             if (it.type == "img" || it.type == "gif") {
                 isVideo = false
                 switchToImage()
-                if (it.type == "gif") {
-                    initializeImage(true)
-                } else {
-                    initializeImage()
-                }
+                initializeImage()
             } else if (it.type == "vid") {
                 isVideo = true
                 switchToVideo()
@@ -144,19 +140,10 @@ class PlayerFragment : Fragment() {
         player = SimpleExoPlayer.Builder(requireContext()).build()
         playerView?.player = player
 
-        player?.addListener(object : Player.EventListener {
-            override fun onPlaybackStateChanged(state: Int) {
-                super.onPlaybackStateChanged(state)
-                if (state == Player.STATE_ENDED) {
-                    elementEnd()
-                    Log.d("LOL", "Video end")
-                }
-            }
-        })
-
         val mediaItem: MediaItem = MediaItem.fromUri(url)
         player?.apply {
             setMediaItem(mediaItem)
+            repeatMode = Player.REPEAT_MODE_ALL
             playWhenReady = true
             seekTo(currentWindow, playbackPosition)
             prepare()
@@ -164,63 +151,15 @@ class PlayerFragment : Fragment() {
     }
 
 
-    private fun initializeImage(isGif: Boolean = false) {
-        // TODO: добавить настройку обрезать/растянуть/без изменений
+    private fun initializeImage() {
         if (imageView != null) {
             Glide.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
-//                .placeholder(R.drawable.logo)
                 .skipMemoryCache(true)
                 .diskCacheStrategy(DiskCacheStrategy.NONE)
-                .listener(object : RequestListener<Drawable> {
-                    override fun onLoadFailed(
-                        e: GlideException?,
-                        model: Any?,
-                        target: Target<Drawable>?,
-                        isFirstResource: Boolean
-                    ): Boolean {
-                        Toast.makeText(requireContext(), "Load image failed", Toast.LENGTH_SHORT)
-                            .show()
-                        return false
-                    }
-
-
-                    override fun onResourceReady(
-                        resource: Drawable?,
-                        model: Any?,
-                        target: Target<Drawable>?,
-                        dataSource: DataSource?,
-                        isFirstResource: Boolean
-                    ): Boolean {
-//                        Glide.get(requireContext()).clearMemory()
-                        startTimer(duration)
-                        return false
-                    }
-                })
                 .into(imageView!!)
-//            Picasso.get()
-//                .load(url)
-//                .placeholder(R.drawable.logo)
-//                .error(R.drawable.ic_close)
-//                .into(imageView)
 
-        }
-    }
-
-    private fun startTimer(duration: Long) {
-        if (duration != 0L) {
-            val timer = object : CountDownTimer(duration * 1000, 1000) {
-                override fun onTick(millisUntilFinished: Long) {
-
-                }
-
-                override fun onFinish() {
-                    elementEnd()
-                    Log.d("LOL", "" + Json.encodeToString(FinishedResult(args.screenId)))
-                }
-            }
-            timer.start()
         }
     }
 
@@ -232,10 +171,6 @@ class PlayerFragment : Fragment() {
             player?.release()
             player = null
         }
-    }
-
-    private fun elementEnd() {
-//        mSocket?.emit(finishedEvent, Json.encodeToString(FinishedResult(args.screenId)))
     }
 
     private fun releaseImage() {
@@ -265,8 +200,4 @@ class PlayerFragment : Fragment() {
         playerView?.visibility = View.GONE
         releasePlayer()
     }
-
-
-
-
 }

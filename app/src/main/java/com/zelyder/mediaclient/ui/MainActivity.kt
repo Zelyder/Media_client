@@ -3,10 +3,8 @@ package com.zelyder.mediaclient.ui
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
-import androidx.navigation.fragment.findNavController
 import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
 import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
@@ -31,10 +29,10 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         }
-        return false
+        return super.onKeyDown(keyCode, event)
     }
 
-    fun toSettingsFragment() {
+    private fun toSettingsFragment() {
         findNavController(R.id.nav_host_fragment).navigate(PlayerFragmentDirections.actionPlayerFragmentToScreenIdFragment())
     }
 }

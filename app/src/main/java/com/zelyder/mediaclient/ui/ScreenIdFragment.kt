@@ -70,9 +70,7 @@ class ScreenIdFragment : Fragment() {
                 etScreenId.setText(screenId.toString())
             }
             etIp.setText(screenIp)
-            if (screenId != 0) {
-                //toPlayerFragment(screenId, screenIp)
-            }
+            btnOk.requestFocus()
         }
 
 
@@ -81,44 +79,16 @@ class ScreenIdFragment : Fragment() {
             (this.activity?.application as MyApp).updateIp(etIp.text.toString())
             if (text.isNotEmpty() && text.isDigitsOnly() && text.toIntOrNull() != null && text.toIntOrNull() in 1..6) {
                 val id = text.toInt()
-
-//                var ient: InetAddress?
-//                ient = null
-//                try {
-//                    ient = InetAddress.getByName(etIp.text.toString())
-//                } catch (e: Exception) {
-//                    e.printStackTrace()
-//                }
-//
-//                try {
-//                    if (ient?.isReachable(5000) == true) {
-//                        toPlayerFragment(id, etIp.text.toString())
-//                    } else {
-//                        etIp.error = "No responde: Time out"
-//                    }
-//                } catch (e: IOException) {
-//                    etIp.error = e.toString()
-//                }
                 btnOk.isActivated = false
-                GlobalScope.launch(Dispatchers.Main) {4
-                    val strIp = etIp.text.toString()
-//                    val isConnect = isHostAvailable(clearUrlToIp(strIp), getPort(strIp) ?: 0, 1000)
-                    if (true) {
-                        toPlayerFragment(id, etIp.text.toString())
-                    } else {
-                        etIp.error = "Ip is not responding"
-                        btnOk.isActivated = true
-                    }
+                GlobalScope.launch(Dispatchers.Main) {
+                    toPlayerFragment(id, etIp.text.toString())
                 }
 
 
             } else {
                 etScreenId.error = getString(R.string.screen_id_et_error_msg)
             }
-
         }
-
-
     }
 
     private fun toPlayerFragment(id: Int, ip: String) {
@@ -133,93 +103,7 @@ class ScreenIdFragment : Fragment() {
         editor.putString(KEY_SCREEN_IP, ip)
         editor.apply()
     }
-
-    fun isConnectedToInternet(url: String): Boolean {
-        val runtime = Runtime.getRuntime()
-        try {
-            val ipProcess = runtime.exec("/system/bin/ping -c 1 $url")
-            val exitValue = ipProcess.waitFor()
-            return exitValue == 0
-        } catch (e: IOException) {
-            e.printStackTrace()
-        } catch (e: InterruptedException) {
-            e.printStackTrace()
-        }
-        return false
-    }
-
-    private suspend fun checkConnection(url: String): Boolean = withContext(Dispatchers.IO){
-        val newUrl = clearUrlToIp(url) ?: false
-        println("executeCommand")
-        val runtime = Runtime.getRuntime()
-        try {
-            val mIpAddrProcess = runtime.exec("/system/bin/ping -c 1 $newUrl")
-            val mExitValue = mIpAddrProcess.waitFor()
-            println(" mExitValue $mExitValue")
-            mExitValue == 0
-        } catch (ignore: InterruptedException) {
-            ignore.printStackTrace()
-            println(" Exception:$ignore")
-            false
-        } catch (e: IOException) {
-            e.printStackTrace()
-            println(" Exception:$e")
-            false
-        }
-    }
-
-    fun clearUrlToIp(str: String): String? {
-        val matchResult = Regex("""([0-9]{1,3}[\.]){3}[0-9]{1,3}""").find(str)//(:[0-9]{4,5})?
-            ?: return null
-        return matchResult.value
-    }
-    fun getPort(url: String): Int? {
-        val matchResult = Regex("""(:[0-9]{4,5})""").find(url)
-            ?: return null
-        return matchResult.value.replace(":","").toInt()
-    }
-
-    fun executeCmd(cmd: String, sudo: Boolean): String? {
-        try {
-            val p: Process
-            p = if (!sudo) Runtime.getRuntime().exec(cmd) else {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
-            }
-            val stdInput = BufferedReader(InputStreamReader(p.inputStream))
-            var s: String
-            var res = ""
-            while (stdInput.readLine().also { s = it } != null) {
-                res += """
-                $s
-                
-                """.trimIndent()
-            }
-            p.destroy()
-            return res
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return ""
-    }
-
-    fun isHostAvailable(host: String?, port: Int, timeout: Int): Boolean {
-        try {
-            Socket().use { socket ->
-                val inetAddress: InetAddress = InetAddress.getByName(host)
-                val inetSocketAddress = InetSocketAddress(inetAddress, port)
-                socket.connect(inetSocketAddress, timeout)
-                return true
-            }
-        } catch (e: IOException) {
-            e.printStackTrace()
-            return false
-        }
-    }
-
 }
-
-
-
 
 const val SHARED_PREF_NAME = "preferences"
 const val KEY_SCREEN_ID = "pref_screen_id"

@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         }
-        return false
+        return super.onKeyDown(keyCode, event)
     }
 
     fun toSettingsFragment() {

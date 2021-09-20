@@ -1,25 +1,18 @@
 package com.zelyder.mediaclient.ui
 
 import android.annotation.SuppressLint
-import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
-import android.os.CountDownTimer
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.load.engine.GlideException
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.Target
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -30,13 +23,14 @@ import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.BASE_URL
 import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
 import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
-import com.zelyder.mediaclient.domain.models.FinishedResult
 import com.zelyder.mediaclient.viewModelFactoryProvider
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 
 class PlayerFragment : Fragment() {
+
+    companion object {
+        private const val TAG = "PlayerFragment"
+    }
 
     private val viewModel: PlayerViewModel by viewModels { viewModelFactoryProvider().viewModelFactory() }
     private val args: PlayerFragmentArgs by navArgs()
@@ -48,43 +42,29 @@ class PlayerFragment : Fragment() {
     private var currentWindow = 0
     private var playbackPosition: Long = 0
     private var url = ""
-    private var duration: Long = 0L
     private var isVideo = false
-    private val TAG = "PlayerFragment"
 
     private lateinit var hubConnection: HubConnection
-
-    private val refreshEvent = "screen refresh"
-    private val finishedEvent = "finished playing"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
-        hubConnection = HubConnectionBuilder.create("${BASE_URL}refresh")
+        hubConnection = HubConnectionBuilder
+            .create("${BASE_URL}refresh")
             .build()
-
-
 
         hubConnection.on(
             "Refresh",
             { message: String ->
-                Log.d("LOL", "New Message: $message")
-                if (message.toInt() == args.screenId) {
-                    viewModel.updateMedia(message.toInt())
+                if (message.toInt() == args.screenId || message.toInt() == 0) {
+                    viewModel.updateMedia(args.screenId)
                 }
             },
             String::class.java
         )
-
-        //This is a blocking call
-
-        //This is a blocking call
         hubConnection.start()
-
-        println("New Message: $")
-
 
     }
 
@@ -98,8 +78,6 @@ class PlayerFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-//        url = "${MEDIA_BASE_URL}${args.screenId}"
-
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
 
@@ -115,7 +93,6 @@ class PlayerFragment : Fragment() {
                 initializePlayer()
             }
         }
-
         viewModel.updateMedia(args.screenId)
 
     }

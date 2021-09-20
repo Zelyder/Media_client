@@ -19,14 +19,7 @@ import com.zelyder.mediaclient.data.SETTINGS_FRAGMENT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
-import java.io.BufferedReader
-import java.io.IOException
-import java.io.InputStreamReader
-import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.Socket
 
 
 class ScreenIdFragment : Fragment() {

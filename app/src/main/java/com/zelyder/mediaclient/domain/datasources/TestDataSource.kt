@@ -1,9 +1,9 @@
 package com.zelyder.mediaclient.domain.datasources
 
-import com.zelyder.mediaclient.data.network.dto.MediaDto
 import com.zelyder.mediaclient.data.network.dto.MediaTypeDto
 import com.zelyder.mediaclient.domain.models.Media
 
+@Suppress("unused")
 class TestDataSource: RemoteDataSource {
 
     fun getImageMedia(): Media {
@@ -31,10 +31,6 @@ class TestDataSource: RemoteDataSource {
             "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
             "vid"
         )
-    }
-
-    override suspend fun getMedia(id: Int): MediaDto {
-        return MediaDto("img", "https://docs.microsoft.com/ru-ru/xamarin/android/platform/fragments/creating-a-fragment-images/fragment-lifecycle.png", 10)
     }
 
     override suspend fun getMediaPath(id: Int): String {

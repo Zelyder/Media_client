@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
@@ -24,6 +25,7 @@ import com.zelyder.mediaclient.data.BASE_URL
 import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
 import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
 import com.zelyder.mediaclient.viewModelFactoryProvider
+import java.net.SocketTimeoutException
 
 
 class PlayerFragment : Fragment() {
@@ -38,9 +40,6 @@ class PlayerFragment : Fragment() {
     private var playerView: PlayerView? = null
     private var imageView: ImageView? = null
     private var player: SimpleExoPlayer? = null
-    private var playWhenReady = true
-    private var currentWindow = 0
-    private var playbackPosition: Long = 0
     private var url = ""
     private var isVideo = false
 
@@ -51,20 +50,8 @@ class PlayerFragment : Fragment() {
 
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
-        hubConnection = HubConnectionBuilder
-            .create("${BASE_URL}refresh")
-            .build()
+        connectToSocket()
 
-        hubConnection.on(
-            "Refresh",
-            { message: String ->
-                if (message.toInt() == args.screenId || message.toInt() == 0) {
-                    viewModel.updateMedia(args.screenId)
-                }
-            },
-            String::class.java
-        )
-        hubConnection.start()
 
     }
 
@@ -94,7 +81,6 @@ class PlayerFragment : Fragment() {
             }
         }
         viewModel.updateMedia(args.screenId)
-
     }
 
     override fun onResume() {
@@ -120,9 +106,8 @@ class PlayerFragment : Fragment() {
         val mediaItem: MediaItem = MediaItem.fromUri(url)
         player?.apply {
             setMediaItem(mediaItem)
-            repeatMode = Player.REPEAT_MODE_ALL
+            repeatMode = Player.REPEAT_MODE_ONE
             playWhenReady = true
-            seekTo(currentWindow, playbackPosition)
             prepare()
         }
     }
@@ -142,9 +127,6 @@ class PlayerFragment : Fragment() {
 
     private fun releasePlayer() {
         if (player != null) {
-            playbackPosition = player!!.currentPosition
-            currentWindow = player!!.currentWindowIndex
-            playWhenReady = player!!.playWhenReady
             player?.release()
             player = null
         }
@@ -168,6 +150,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun switchToVideo() {
+        releasePlayer()
         imageView?.visibility = View.GONE
         playerView?.visibility = View.VISIBLE
     }
@@ -176,5 +159,43 @@ class PlayerFragment : Fragment() {
         imageView?.visibility = View.VISIBLE
         playerView?.visibility = View.GONE
         releasePlayer()
+    }
+
+    private fun connectToSocket() {
+        try {
+            hubConnection = HubConnectionBuilder
+                .create("${BASE_URL}refresh")
+                .build()
+
+
+            Log.d(TAG, "connection OK")
+            hubConnection.on(
+                "Refresh",
+                { message: String ->
+                    if (message.toInt() == args.screenId || message.toInt() == 0) {
+                        viewModel.updateMedia(args.screenId)
+                    }
+                },
+                String::class.java
+            )
+            hubConnection.start()
+            hubConnection.onClosed {
+                Log.d(TAG, "connection lost")
+            }
+        } catch (ex: SocketTimeoutException) {
+            Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+            Toast.makeText(
+                requireContext(),
+                resources.getText(R.string.connection_exception),
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (ex: Exception) {
+            Log.d(TAG, resources.getText(R.string.unexpected_error).toString())
+            Toast.makeText(
+                requireContext(),
+                resources.getText(R.string.unexpected_error),
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 }

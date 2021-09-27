@@ -11,6 +11,7 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -24,6 +25,7 @@ import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.BASE_URL
 import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
 import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
+import com.zelyder.mediaclient.data.SETTINGS_FRAGMENT
 import com.zelyder.mediaclient.viewModelFactoryProvider
 import java.net.SocketTimeoutException
 
@@ -68,6 +70,8 @@ class PlayerFragment : Fragment() {
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
 
+
+
         viewModel.media.observe(this.viewLifecycleOwner) {
             url = it.url
             if (it.type == "img" || it.type == "gif") {
@@ -83,9 +87,19 @@ class PlayerFragment : Fragment() {
         viewModel.updateMedia(args.screenId)
     }
 
+    override fun onStart() {
+        super.onStart()
+        CURRENT_FRAGMENT = PLAYER_FRAGMENT
+    }
+
     override fun onResume() {
         super.onResume()
         hideSystemUi()
+    }
+
+    override fun onStop() {
+        findNavController().previousBackStackEntry?.savedStateHandle?.set(KEY_IS_FIRST_OPEN, false)
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -98,6 +112,8 @@ class PlayerFragment : Fragment() {
         releasePlayer()
         releaseImage()
     }
+
+
 
     private fun initializePlayer() {
         player = SimpleExoPlayer.Builder(requireContext()).build()

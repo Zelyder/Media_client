@@ -16,24 +16,5 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
     }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        Log.d("debug", "we are here")
-        when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                if(CURRENT_FRAGMENT == PLAYER_FRAGMENT){
-                    toSettingsFragment()
-                }else {
-                    return false
-                }
-                return true
-            }
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
-    private fun toSettingsFragment() {
-        findNavController(R.id.nav_host_fragment).navigate(PlayerFragmentDirections.actionPlayerFragmentToScreenIdFragment())
-    }
 }
 

@@ -13,8 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.ObjectKey
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -25,9 +24,10 @@ import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.BASE_URL
 import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
 import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
-import com.zelyder.mediaclient.data.SETTINGS_FRAGMENT
+import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
 import java.net.SocketTimeoutException
+import java.util.*
 
 
 class PlayerFragment : Fragment() {
@@ -70,8 +70,6 @@ class PlayerFragment : Fragment() {
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
 
-
-
         viewModel.media.observe(this.viewLifecycleOwner) {
             url = it.url
             if (it.type == "img" || it.type == "gif") {
@@ -82,6 +80,15 @@ class PlayerFragment : Fragment() {
                 isVideo = true
                 switchToVideo()
                 initializePlayer()
+            }
+        }
+        viewModel.connection.observe(this.viewLifecycleOwner) { connected ->
+            if (!connected) {
+                Toast.makeText(
+                    requireContext(),
+                    "Ошибка подключения! Удостоверьтесь в подключении кабеля и правильности url",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
         viewModel.updateMedia(args.screenId)
@@ -113,8 +120,6 @@ class PlayerFragment : Fragment() {
         releaseImage()
     }
 
-
-
     private fun initializePlayer() {
         player = SimpleExoPlayer.Builder(requireContext()).build()
         playerView?.player = player
@@ -131,11 +136,11 @@ class PlayerFragment : Fragment() {
 
     private fun initializeImage() {
         if (imageView != null) {
-            Glide.with(this)
+            GlideApp.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
-                .skipMemoryCache(true)
-                .diskCacheStrategy(DiskCacheStrategy.NONE)
+//                .skipMemoryCache(true)
+                .signature(ObjectKey(Calendar.getInstance().time))
                 .into(imageView!!)
 
         }
@@ -150,7 +155,7 @@ class PlayerFragment : Fragment() {
 
     private fun releaseImage() {
         if (imageView != null) {
-            Glide.with(this).clear(imageView!!)
+            GlideApp.with(this).clear(imageView!!)
             imageView = null
         }
     }

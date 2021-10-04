@@ -5,6 +5,7 @@ import android.util.Log
 import com.zelyder.mediaclient.data.BASE_URL
 import com.zelyder.mediaclient.data.network.apis.MediaApi
 import com.zelyder.mediaclient.data.network.dto.MediaTypeDto
+import com.zelyder.mediaclient.domain.utils.convertToSuspend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.Call
@@ -24,22 +25,7 @@ class RemoteDataSourceImpl(private val mediaApi: MediaApi) : RemoteDataSource {
         "${BASE_URL}api/screens/$id/content"
     }
 
-    override suspend fun getMediaType(id: Int): MediaTypeDto? = withContext(Dispatchers.IO) {
-        var result: Result<MediaTypeDto> = Result.failure(NullPointerException("Initialization error"))
-        mediaApi.getMediaTypeByScreenId(id).enqueue(object : Callback<MediaTypeDto> {
-            override fun onResponse(call: Call<MediaTypeDto>, response: Response<MediaTypeDto>) {
-                Log.d(TAG, "onResponse: Ok")
-                result = if (response.isSuccessful && response.body() != null) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(IOException("response is not Successful"))
-                }
-            }
-
-            override fun onFailure(call: Call<MediaTypeDto>, t: Throwable) {
-                result = Result.failure(IOException("Request failed"))
-            }
-        })
-        result.getOrNull()
+    override suspend fun getMediaType(id: Int): MediaTypeDto = withContext(Dispatchers.IO) {
+        mediaApi.getMediaTypeByScreenId(id).convertToSuspend()
     }
 }

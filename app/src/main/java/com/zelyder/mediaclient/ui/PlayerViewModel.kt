@@ -1,6 +1,7 @@
 package com.zelyder.mediaclient.ui
 
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -18,16 +19,20 @@ class PlayerViewModel(private val mediaRepository: MediaRepository): ViewModel()
 
     private val _media: MutableLiveData<Media> = MutableLiveData()
     val media: LiveData<Media> get() = _media
+    private val _connection: MutableLiveData<Boolean> = MutableLiveData()
+    val connection: LiveData<Boolean> get() = _connection
 
     private val exceptionHandler = CoroutineExceptionHandler { coroutineContext, throwable ->
         val name = coroutineContext[CoroutineName] ?: "unknown"
         val error = throwable.stackTraceToString()
         Log.e(TAG, "$name : \n $error")
+        _connection.value = false
     }
 
     fun updateMedia(id: Int) {
         viewModelScope.launch(exceptionHandler) {
             _media.value = mediaRepository.getMedia(id)
+            _connection.value = true
         }
     }
 

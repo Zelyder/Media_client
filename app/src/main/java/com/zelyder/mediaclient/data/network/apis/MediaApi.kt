@@ -7,5 +7,5 @@ import retrofit2.http.Path
 
 interface MediaApi {
     @GET("api/screens/{Id}/type")
-    suspend fun getMediaTypeByScreenId(@Path("Id") id: Int): Call<MediaTypeDto>
+    suspend fun getMediaTypeByScreenId(@Path("Id") id: Int): MediaTypeDto
 }

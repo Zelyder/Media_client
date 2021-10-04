@@ -26,6 +26,6 @@ class RemoteDataSourceImpl(private val mediaApi: MediaApi) : RemoteDataSource {
     }
 
     override suspend fun getMediaType(id: Int): MediaTypeDto = withContext(Dispatchers.IO) {
-        mediaApi.getMediaTypeByScreenId(id).convertToSuspend()
+        mediaApi.getMediaTypeByScreenId(id)
     }
 }

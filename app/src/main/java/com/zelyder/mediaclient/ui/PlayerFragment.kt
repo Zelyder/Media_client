@@ -13,6 +13,8 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.MediaStoreSignature
 import com.bumptech.glide.signature.ObjectKey
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
@@ -27,6 +29,7 @@ import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
 import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
 import java.net.SocketTimeoutException
+import java.time.Instant
 import java.util.*
 
 
@@ -89,6 +92,8 @@ class PlayerFragment : Fragment() {
                     "Ошибка подключения! Удостоверьтесь в подключении кабеля и правильности url",
                     Toast.LENGTH_LONG
                 ).show()
+                switchToImage()
+                initializeCashedImage()
             }
         }
         viewModel.updateMedia(args.screenId)
@@ -139,10 +144,20 @@ class PlayerFragment : Fragment() {
             GlideApp.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
-//                .skipMemoryCache(true)
-                .signature(ObjectKey(Calendar.getInstance().time))
+                .skipMemoryCache(true)
+                .signature(MediaStoreSignature("img", Calendar.getInstance().timeInMillis, 0))
                 .into(imageView!!)
 
+        }
+    }
+
+    private fun initializeCashedImage() {
+        if (imageView != null) {
+            GlideApp.with(this)
+                .load(url)
+                .error(R.drawable.ic_close)
+                .diskCacheStrategy(DiskCacheStrategy.DATA)
+                .into(imageView!!)
         }
     }
 

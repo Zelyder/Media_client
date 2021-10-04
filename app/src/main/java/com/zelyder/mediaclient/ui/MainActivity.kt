@@ -22,7 +22,7 @@ class MainActivity : AppCompatActivity() {
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> {
                 if(CURRENT_FRAGMENT == PLAYER_FRAGMENT){
-                    toSettingsFragment()
+//                    toSettingsFragment()
                 }else {
                     return false
                 }

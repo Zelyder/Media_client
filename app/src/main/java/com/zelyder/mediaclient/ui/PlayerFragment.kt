@@ -14,6 +14,8 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.MediaStoreSignature
+import com.bumptech.glide.signature.ObjectKey
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -21,11 +23,11 @@ import com.google.android.exoplayer2.ui.PlayerView
 import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
 import com.zelyder.mediaclient.R
-import com.zelyder.mediaclient.data.BASE_URL
-import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
-import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
+import com.zelyder.mediaclient.data.*
+import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
 import java.net.SocketTimeoutException
+import java.util.*
 
 
 class PlayerFragment : Fragment() {
@@ -115,11 +117,11 @@ class PlayerFragment : Fragment() {
 
     private fun initializeImage() {
         if (imageView != null) {
-            Glide.with(this)
+            GlideApp.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
-                .skipMemoryCache(true)
-                .diskCacheStrategy(DiskCacheStrategy.NONE)
+//                .skipMemoryCache(true)
+                .signature(ObjectKey(Calendar.getInstance().time))
                 .into(imageView!!)
 
         }
@@ -134,7 +136,7 @@ class PlayerFragment : Fragment() {
 
     private fun releaseImage() {
         if (imageView != null) {
-            Glide.with(this).clear(imageView!!)
+            GlideApp.with(this).clear(imageView!!)
             imageView = null
         }
     }
@@ -156,6 +158,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun switchToImage() {
+        GlideApp.get(requireContext()).clearMemory()
         imageView?.visibility = View.VISIBLE
         playerView?.visibility = View.GONE
         releasePlayer()

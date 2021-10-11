@@ -13,9 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.signature.MediaStoreSignature
-import com.bumptech.glide.signature.ObjectKey
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -24,12 +22,13 @@ import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
 import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.BASE_URL
+import com.zelyder.mediaclient.data.CACHED_IMAGE_NAME
 import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
 import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
 import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
+import java.io.File
 import java.net.SocketTimeoutException
-import java.time.Instant
 import java.util.*
 
 
@@ -37,6 +36,7 @@ class PlayerFragment : Fragment() {
 
     companion object {
         private const val TAG = "PlayerFragment"
+
     }
 
     private val viewModel: PlayerViewModel by viewModels { viewModelFactoryProvider().viewModelFactory() }
@@ -56,8 +56,6 @@ class PlayerFragment : Fragment() {
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
         connectToSocket()
-
-
     }
 
     override fun onCreateView(
@@ -154,9 +152,9 @@ class PlayerFragment : Fragment() {
     private fun initializeCashedImage() {
         if (imageView != null) {
             GlideApp.with(this)
-                .load(url)
+                .load(File("/storage/emulated/0/Pictures", CACHED_IMAGE_NAME))
+                .skipMemoryCache(true)
                 .error(R.drawable.ic_close)
-                .diskCacheStrategy(DiskCacheStrategy.DATA)
                 .into(imageView!!)
         }
     }
@@ -234,4 +232,6 @@ class PlayerFragment : Fragment() {
             ).show()
         }
     }
+
+
 }

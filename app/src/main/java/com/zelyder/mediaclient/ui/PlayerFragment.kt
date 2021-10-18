@@ -3,6 +3,8 @@ package com.zelyder.mediaclient.ui
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -21,6 +23,7 @@ import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
 import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
+import com.microsoft.signalr.HubConnectionState
 import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.BASE_URL
 import com.zelyder.mediaclient.data.CACHED_IMAGE_NAME
@@ -29,8 +32,10 @@ import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
 import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
 import java.io.File
+import java.lang.Thread.sleep
 import java.net.SocketTimeoutException
 import java.util.*
+import kotlin.concurrent.thread
 
 
 class PlayerFragment : Fragment() {
@@ -48,6 +53,7 @@ class PlayerFragment : Fragment() {
     private var player: SimpleExoPlayer? = null
     private var url = ""
     private var isVideo = false
+    private var t1: Thread? = null
 
     private lateinit var hubConnection: HubConnection
 
@@ -93,6 +99,12 @@ class PlayerFragment : Fragment() {
                 ).show()
                 switchToImage()
                 initializeCashedImage()
+                if (hubConnection.connectionState == HubConnectionState.DISCONNECTED) {
+                    Log.d(TAG, "try to reconnect in connection changed")
+                    launchConnectionLoop()
+                }
+            } else if(t1 != null && t1!!.isAlive){
+                t1?.interrupt()
             }
         }
         viewModel.updateMedia(args.screenId)
@@ -197,13 +209,32 @@ class PlayerFragment : Fragment() {
         releasePlayer()
     }
 
+    private fun launchConnectionLoop() {
+        val uiHandler = Handler(Looper.getMainLooper())
+        try {
+            t1 = thread {
+                while(hubConnection.connectionState == HubConnectionState.DISCONNECTED){
+                    hubConnection.stop()
+                    connectToSocket()
+                    sleep(10000)
+                }
+                uiHandler.post {
+                    Log.d(TAG, "Connection restored!")
+                    Toast.makeText(context, "Connection restored!", Toast.LENGTH_LONG).show()
+                }
+            }
+        }catch (ex: InterruptedException){
+            ex.printStackTrace()
+            Log.d(TAG, "launchConnectionLoop failed")
+        }
+
+    }
+
     private fun connectToSocket() {
         try {
             hubConnection = HubConnectionBuilder
                 .create("${BASE_URL}refresh")
-                .withHandshakeResponseTimeout(30000)
                 .build()
-
 
             Log.d(TAG, "try to connect")
             hubConnection.on(
@@ -218,7 +249,9 @@ class PlayerFragment : Fragment() {
             )
             hubConnection.start()
             hubConnection.onClosed {
-                Log.d(TAG, "connection lost")
+                Log.d(TAG, "connection lost state = ${hubConnection.connectionState}")
+                Log.d(TAG, "try to reconnect in hub Connection")
+                launchConnectionLoop()
             }
         } catch (ex: SocketTimeoutException) {
             Log.d(TAG, resources.getText(R.string.connection_exception).toString())

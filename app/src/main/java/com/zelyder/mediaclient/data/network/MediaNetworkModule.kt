@@ -36,7 +36,7 @@ class MediaNetworkModule(val context: Context) {
     }
 
     private val httpClient = OkHttpClient.Builder()
-        .addInterceptor(NoConnectionInterceptor(context))
+//        .addInterceptor(NoConnectionInterceptor(context))
         .addInterceptor(
         Interceptor {
             val original = it.request()

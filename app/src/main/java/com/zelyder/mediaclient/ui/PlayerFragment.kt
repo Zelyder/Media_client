@@ -211,22 +211,23 @@ class PlayerFragment : Fragment() {
 
     private fun launchConnectionLoop() {
         val uiHandler = Handler(Looper.getMainLooper())
-        try {
+
             t1 = thread {
                 while(hubConnection.connectionState == HubConnectionState.DISCONNECTED){
+                    try {
                     hubConnection.stop()
                     connectToSocket()
                     sleep(10000)
+                    }catch (ex: InterruptedException){
+                        ex.printStackTrace()
+                        Log.d(TAG, "launchConnectionLoop failed")
+                    }
                 }
                 uiHandler.post {
                     Log.d(TAG, "Connection restored!")
-                    Toast.makeText(context, "Connection restored!", Toast.LENGTH_LONG).show()
                 }
             }
-        }catch (ex: InterruptedException){
-            ex.printStackTrace()
-            Log.d(TAG, "launchConnectionLoop failed")
-        }
+
 
     }
 

@@ -31,8 +31,7 @@ class MyApp : Application(), ViewModelFactoryProvider {
     @ExperimentalSerializationApi
     private fun initRepositories() {
 
-        val remoteDateSource = RemoteDataSourceImpl(MediaNetworkModule().mediaApi())
-        val testDataSource = TestDataSource()
+        val remoteDateSource = RemoteDataSourceImpl(MediaNetworkModule(applicationContext).mediaApi())
 
         mediaRepository = MediaRepositoryImpl(remoteDateSource)
 
@@ -45,7 +44,6 @@ class MyApp : Application(), ViewModelFactoryProvider {
     fun updateIp(ip: String) {
         BASE_URL = ip
         MEDIA_BASE_URL = "${BASE_URL}screen/"
-        //TODO: updateSocket()
 
         initRepositories()
     }

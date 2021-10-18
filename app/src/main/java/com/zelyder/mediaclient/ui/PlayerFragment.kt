@@ -199,14 +199,16 @@ class PlayerFragment : Fragment() {
         try {
             hubConnection = HubConnectionBuilder
                 .create("${BASE_URL}refresh")
+                .withHandshakeResponseTimeout(30000)
                 .build()
 
 
-            Log.d(TAG, "connection OK")
+            Log.d(TAG, "try to connect")
             hubConnection.on(
                 "Refresh",
                 { message: String ->
                     if (message.toInt() == args.screenId || message.toInt() == 0) {
+                        Log.d(TAG, "Socket message $message")
                         viewModel.updateMedia(args.screenId)
                     }
                 },

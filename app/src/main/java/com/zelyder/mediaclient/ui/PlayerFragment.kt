@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.signature.MediaStoreSignature
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
@@ -153,6 +154,7 @@ class PlayerFragment : Fragment() {
         if (imageView != null) {
             GlideApp.with(this)
                 .load(File("/storage/emulated/0/Pictures", CACHED_IMAGE_NAME))
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
                 .skipMemoryCache(true)
                 .error(R.drawable.ic_close)
                 .into(imageView!!)

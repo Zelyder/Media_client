@@ -32,7 +32,7 @@ class MediaNetworkModule(val context: Context) {
 
     companion object {
         private const val TAG = "MediaNetworkModule"
-        private const val TIMEOUT = 30L
+        private const val TIMEOUT = 10L
     }
 
     private val httpClient = OkHttpClient.Builder()

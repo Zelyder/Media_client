@@ -3,7 +3,6 @@ package com.zelyder.mediaclient.ui
 import android.graphics.Bitmap
 import android.os.Environment
 import android.util.Log
-import android.widget.Toast
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -18,7 +17,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 
-class PlayerViewModel(private val mediaRepository: MediaRepository): ViewModel() {
+class PlayerViewModel(private val mediaRepository: MediaRepository) : ViewModel() {
     companion object {
         private const val TAG = "PlayerViewModel"
     }
@@ -43,7 +42,7 @@ class PlayerViewModel(private val mediaRepository: MediaRepository): ViewModel()
         }
     }
 
-    fun saveImage(image: Bitmap): String?{
+    fun saveImage(image: Bitmap): String? {
         var savedImagePath: String? = null
         viewModelScope.launch(exceptionHandler) {
             val storageDir = File(

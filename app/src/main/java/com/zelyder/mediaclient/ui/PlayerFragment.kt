@@ -1,6 +1,7 @@
 package com.zelyder.mediaclient.ui
 
 import android.annotation.SuppressLint
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -10,12 +11,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.bumptech.glide.signature.MediaStoreSignature
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
@@ -50,10 +56,12 @@ class PlayerFragment : Fragment() {
 
     private var playerView: PlayerView? = null
     private var imageView: ImageView? = null
+    private var progressBar: ProgressBar? = null
     private var player: SimpleExoPlayer? = null
     private var url = ""
     private var isVideo = false
     private var t1: Thread? = null
+    private var lastModified = Calendar.getInstance().timeInMillis
 
     private lateinit var hubConnection: HubConnection
 
@@ -77,11 +85,13 @@ class PlayerFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
+        progressBar = view.findViewById(R.id.progressBar)
 
         viewModel.media.observe(this.viewLifecycleOwner) {
             url = it.url
             if (it.type == "img" || it.type == "gif") {
                 isVideo = false
+                lastModified = Calendar.getInstance().timeInMillis
                 switchToImage()
                 initializeImage()
             } else if (it.type == "vid") {
@@ -103,7 +113,7 @@ class PlayerFragment : Fragment() {
                     Log.d(TAG, "try to reconnect in connection changed")
                     launchConnectionLoop()
                 }
-            } else if(t1 != null && t1!!.isAlive){
+            } else if (t1 != null && t1!!.isAlive) {
                 t1?.interrupt()
             }
         }
@@ -152,11 +162,36 @@ class PlayerFragment : Fragment() {
 
     private fun initializeImage() {
         if (imageView != null) {
+            progressBar?.visibility = View.VISIBLE
             GlideApp.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
+                .listener(object : RequestListener<Drawable> {
+                    override fun onLoadFailed(
+                        e: GlideException?,
+                        model: Any?,
+                        target: Target<Drawable>?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        progressBar?.visibility = View.GONE
+                        return false
+                    }
+
+                    override fun onResourceReady(
+                        resource: Drawable?,
+                        model: Any?,
+                        target: Target<Drawable>?,
+                        dataSource: DataSource?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        progressBar?.visibility = View.GONE
+                        return false
+                    }
+
+                })
                 .skipMemoryCache(true)
-                .signature(MediaStoreSignature("img", Calendar.getInstance().timeInMillis, 0))
+                .thumbnail(0.25f)
+                .signature(MediaStoreSignature("img", lastModified, 0))
                 .into(imageView!!)
 
         }
@@ -212,21 +247,21 @@ class PlayerFragment : Fragment() {
     private fun launchConnectionLoop() {
         val uiHandler = Handler(Looper.getMainLooper())
 
-            t1 = thread {
-                while(hubConnection.connectionState == HubConnectionState.DISCONNECTED){
-                    try {
+        t1 = thread {
+            while (hubConnection.connectionState == HubConnectionState.DISCONNECTED) {
+                try {
                     hubConnection.stop()
                     connectToSocket()
                     sleep(10000)
-                    }catch (ex: InterruptedException){
-                        ex.printStackTrace()
-                        Log.d(TAG, "launchConnectionLoop failed")
-                    }
-                }
-                uiHandler.post {
-                    Log.d(TAG, "Connection restored!")
+                } catch (ex: InterruptedException) {
+                    ex.printStackTrace()
+                    Log.d(TAG, "launchConnectionLoop failed")
                 }
             }
+            uiHandler.post {
+                Log.d(TAG, "Connection restored!")
+            }
+        }
 
 
     }

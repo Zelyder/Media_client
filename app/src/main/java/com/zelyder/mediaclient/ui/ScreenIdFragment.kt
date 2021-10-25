@@ -3,6 +3,7 @@ package com.zelyder.mediaclient.ui
 import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +12,7 @@ import android.widget.EditText
 import androidx.core.text.isDigitsOnly
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.fragment.navArgs
 import com.zelyder.mediaclient.MyApp
 import com.zelyder.mediaclient.R
 import com.zelyder.mediaclient.data.BASE_URL
@@ -29,10 +31,15 @@ class ScreenIdFragment : Fragment() {
     private lateinit var btnOk: Button
 
     private lateinit var sharePrefs: SharedPreferences
+    private var screenId: Int = 0
+    private var screenIp: String = BASE_URL
+    private val args: ScreenIdFragmentArgs by navArgs()
+    private var isFirstOpen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        CURRENT_FRAGMENT = SETTINGS_FRAGMENT
+        isFirstOpen = args.isFirstOpen
+
     }
 
     override fun onCreateView(
@@ -54,12 +61,22 @@ class ScreenIdFragment : Fragment() {
         sharePrefs = requireContext().getSharedPreferences(SHARED_PREF_NAME, MODE_PRIVATE)
 
 
-        val screenId = sharePrefs.getInt(KEY_SCREEN_ID, 0)
-        val screenIp: String = sharePrefs.getString(KEY_SCREEN_IP, BASE_URL)!!
+        screenId = sharePrefs.getInt(KEY_SCREEN_ID, 0)
+        screenIp = sharePrefs.getString(KEY_SCREEN_IP, BASE_URL)!!
+
+        findNavController().currentBackStackEntry?.savedStateHandle?.getLiveData<Boolean>(KEY_IS_FIRST_OPEN)
+            ?.observe(viewLifecycleOwner) {
+                isFirstOpen = false
+            }
 
 
         if (savedInstanceState == null) {
             if (screenId in 1..6) {
+                if (isFirstOpen) {
+                    (this.activity?.application as MyApp).updateIp(screenIp)
+                    isFirstOpen = false
+                    toPlayerFragment(screenId, screenIp)
+                }
                 etScreenId.setText(screenId.toString())
             }
             etIp.setText(screenIp)
@@ -73,15 +90,17 @@ class ScreenIdFragment : Fragment() {
             if (text.isNotEmpty() && text.isDigitsOnly() && text.toIntOrNull() != null && text.toIntOrNull() in 1..6) {
                 val id = text.toInt()
                 btnOk.isActivated = false
-                GlobalScope.launch(Dispatchers.Main) {
-                    toPlayerFragment(id, etIp.text.toString())
-                }
-
-
+                Log.d(TAG, "toPlayerFragment($id, ${etIp.text})")
+                toPlayerFragment(id, etIp.text.toString())
             } else {
                 etScreenId.error = getString(R.string.screen_id_et_error_msg)
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        CURRENT_FRAGMENT = SETTINGS_FRAGMENT
     }
 
     private fun toPlayerFragment(id: Int, ip: String) {
@@ -98,6 +117,8 @@ class ScreenIdFragment : Fragment() {
     }
 }
 
+private const val TAG = "ScreenIdFragment"
 const val SHARED_PREF_NAME = "preferences"
 const val KEY_SCREEN_ID = "pref_screen_id"
 const val KEY_SCREEN_IP = "pref_screen_ip"
+const val KEY_IS_FIRST_OPEN = "pref_is_first_open"

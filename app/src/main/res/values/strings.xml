@@ -8,5 +8,8 @@
     <string name="screen_id_hint">Screen id</string>
     <string name="screen_id_btn_text">Next</string>
     <string name="screen_id_et_error_msg">Invalid input. Please enter a number from 1 to 6</string>
+    <string name="screen_ip_hint">Server ip</string>
+    <string name="connection_exception">Connection Failed</string>
+    <string name="unexpected_error">Unexpected error</string>
 
 </resources>

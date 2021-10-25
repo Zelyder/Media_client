@@ -3,13 +3,9 @@ plugins {
     id 'kotlin-android'
     id 'org.jetbrains.kotlin.plugin.serialization' version '1.4.30'
     id 'androidx.navigation.safeargs.kotlin'
+    id 'kotlin-kapt'
 }
 
-configurations {
-    all {
-        exclude group: 'org.json', module: 'json'
-    }
-}
 
 android {
     compileSdkVersion 30
@@ -19,8 +15,8 @@ android {
         applicationId "com.zelyder.mediaclient"
         minSdkVersion 21
         targetSdkVersion 30
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "1.2"
 
     }
     compileOptions {
@@ -42,6 +38,8 @@ android {
 dependencies {
 
     def nav_version = "2.3.4"
+    def activity_version = "1.3.1"
+    def fragment_version = "1.3.6"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'androidx.core:core-ktx:1.3.2'
@@ -54,8 +52,14 @@ dependencies {
     implementation 'com.google.android.exoplayer:exoplayer-ui:2.12.0'
 
     implementation 'pl.droidsonroids.gif:android-gif-drawable:1.2.22'
+    kapt 'androidx.annotation:annotation:1.2.0'
     implementation 'com.github.bumptech.glide:glide:4.12.0'
     implementation 'com.squareup.picasso:picasso:2.71828'
+    kapt 'com.github.bumptech.glide:compiler:4.12.0'
+
+    implementation "androidx.activity:activity-ktx:$activity_version"
+    implementation "androidx.fragment:fragment-ktx:$fragment_version"
+
 
 
     //Network
@@ -65,7 +69,9 @@ dependencies {
     implementation 'com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0'
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.1"
     implementation 'androidx.legacy:legacy-support-v4:1.0.0'
-    implementation 'com.github.nkzawa:socket.io-client:0.3.0'
+    // socket
+    implementation 'com.smartarmenia:dotnetcoresignalrclientjava:1.14'
+    implementation 'com.microsoft.signalr:signalr:3.1.3'
 
 
     // Navigation component

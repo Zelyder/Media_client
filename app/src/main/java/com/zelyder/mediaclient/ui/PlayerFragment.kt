@@ -3,27 +3,47 @@ package com.zelyder.mediaclient.ui
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import androidx.appcompat.app.AppCompatActivity
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
-import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.signature.MediaStoreSignature
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
-import com.google.android.exoplayer2.util.Util
-import com.squareup.picasso.Picasso
+import com.microsoft.signalr.HubConnection
+import com.microsoft.signalr.HubConnectionBuilder
+import com.microsoft.signalr.HubConnectionState
 import com.zelyder.mediaclient.R
-import com.zelyder.mediaclient.data.MEDIA_BASE_URL
+import com.zelyder.mediaclient.data.BASE_URL
+import com.zelyder.mediaclient.data.CACHED_IMAGE_NAME
+import com.zelyder.mediaclient.data.CURRENT_FRAGMENT
+import com.zelyder.mediaclient.data.PLAYER_FRAGMENT
+import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
+import java.io.File
+import java.lang.Thread.sleep
+import java.net.SocketTimeoutException
+import java.util.*
+import kotlin.concurrent.thread
 
 
 class PlayerFragment : Fragment() {
+
+    companion object {
+        private const val TAG = "PlayerFragment"
+
+    }
 
     private val viewModel: PlayerViewModel by viewModels { viewModelFactoryProvider().viewModelFactory() }
     private val args: PlayerFragmentArgs by navArgs()
@@ -31,11 +51,19 @@ class PlayerFragment : Fragment() {
     private var playerView: PlayerView? = null
     private var imageView: ImageView? = null
     private var player: SimpleExoPlayer? = null
-    private var playWhenReady = true
-    private var currentWindow = 0
-    private var playbackPosition: Long = 0
     private var url = ""
     private var isVideo = false
+    private var t1: Thread? = null
+
+    private lateinit var hubConnection: HubConnection
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        CURRENT_FRAGMENT = PLAYER_FRAGMENT
+        // live update
+        connectToSocket()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -47,26 +75,44 @@ class PlayerFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-//        url = "${MEDIA_BASE_URL}${args.screenId}"
-
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
 
         viewModel.media.observe(this.viewLifecycleOwner) {
             url = it.url
-            if(it.type == "image") {
+            if (it.type == "img" || it.type == "gif") {
                 isVideo = false
                 switchToImage()
-               initializeImage()
-            }else if (it.type == "video") {
+                initializeImage()
+            } else if (it.type == "vid") {
                 isVideo = true
                 switchToVideo()
                 initializePlayer()
             }
         }
-
+        viewModel.connection.observe(this.viewLifecycleOwner) { connected ->
+            if (!connected) {
+                Toast.makeText(
+                    requireContext(),
+                    "Ошибка подключения! Удостоверьтесь в подключении кабеля и правильности url",
+                    Toast.LENGTH_LONG
+                ).show()
+                switchToImage()
+                initializeCashedImage()
+                if (hubConnection.connectionState == HubConnectionState.DISCONNECTED) {
+                    Log.d(TAG, "try to reconnect in connection changed")
+                    launchConnectionLoop()
+                }
+            } else if(t1 != null && t1!!.isAlive){
+                t1?.interrupt()
+            }
+        }
         viewModel.updateMedia(args.screenId)
+    }
 
+    override fun onStart() {
+        super.onStart()
+        CURRENT_FRAGMENT = PLAYER_FRAGMENT
     }
 
     override fun onResume() {
@@ -74,49 +120,15 @@ class PlayerFragment : Fragment() {
         hideSystemUi()
     }
 
-    //    override fun onStart() {
-//        super.onStart()
-//        if (isVideo) {
-//            switchToVideo()
-//            if (Util.SDK_INT > 23) {
-//                initializePlayer()
-//            }
-//        } else {
-//            switchToImage()
-//            initializeImage()
-//        }
-//    }
-//
-//    override fun onResume() {
-//        super.onResume()
-//        hideSystemUi()
-//        if (isVideo) {
-//            if (Util.SDK_INT <= 23 || player == null) {
-//                initializePlayer()
-//            }
-//        }
-//    }
-//
-//
-//
-//    override fun onPause() {
-//        super.onPause()
-//        if (Util.SDK_INT <= 23 && isVideo) {
-//            releasePlayer()
-//        }
-//    }
-//
-//    override fun onStop() {
-//        super.onStop()
-//        if (isVideo) {
-//            if (Util.SDK_INT > 23) {
-//                releasePlayer()
-//            }
-//        } else if (imageView != null) {
-//            Glide.with(this).clear(imageView!!)
-//            imageView = null
-//        }
-//    }
+    override fun onStop() {
+        findNavController().previousBackStackEntry?.savedStateHandle?.set(KEY_IS_FIRST_OPEN, false)
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        hubConnection.stop()
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()
@@ -127,11 +139,12 @@ class PlayerFragment : Fragment() {
     private fun initializePlayer() {
         player = SimpleExoPlayer.Builder(requireContext()).build()
         playerView?.player = player
+
         val mediaItem: MediaItem = MediaItem.fromUri(url)
         player?.apply {
             setMediaItem(mediaItem)
-            playWhenReady = playWhenReady
-            seekTo(currentWindow, playbackPosition)
+            repeatMode = Player.REPEAT_MODE_ONE
+            playWhenReady = true
             prepare()
         }
     }
@@ -139,26 +152,29 @@ class PlayerFragment : Fragment() {
 
     private fun initializeImage() {
         if (imageView != null) {
-            Glide.with(this)
+            GlideApp.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
-                .placeholder(R.drawable.logo)
                 .skipMemoryCache(true)
-                .diskCacheStrategy(DiskCacheStrategy.NONE)
-                //.override(600, 200)
+                .signature(MediaStoreSignature("img", Calendar.getInstance().timeInMillis, 0))
                 .into(imageView!!)
-//            Picasso.get()
-//                .load(url)
-//                .placeholder(R.drawable.logo)
-//                .into(imageView)
+
+        }
+    }
+
+    private fun initializeCashedImage() {
+        if (imageView != null) {
+            GlideApp.with(this)
+                .load(File("/storage/emulated/0/Pictures", CACHED_IMAGE_NAME))
+                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                .skipMemoryCache(true)
+                .error(R.drawable.ic_close)
+                .into(imageView!!)
         }
     }
 
     private fun releasePlayer() {
         if (player != null) {
-            playbackPosition = player!!.currentPosition
-            currentWindow = player!!.currentWindowIndex
-            playWhenReady = player!!.playWhenReady
             player?.release()
             player = null
         }
@@ -166,7 +182,7 @@ class PlayerFragment : Fragment() {
 
     private fun releaseImage() {
         if (imageView != null) {
-            Glide.with(this).clear(imageView!!)
+            GlideApp.with(this).clear(imageView!!)
             imageView = null
         }
     }
@@ -182,6 +198,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun switchToVideo() {
+        releasePlayer()
         imageView?.visibility = View.GONE
         playerView?.visibility = View.VISIBLE
     }
@@ -189,5 +206,70 @@ class PlayerFragment : Fragment() {
     private fun switchToImage() {
         imageView?.visibility = View.VISIBLE
         playerView?.visibility = View.GONE
+        releasePlayer()
     }
+
+    private fun launchConnectionLoop() {
+        val uiHandler = Handler(Looper.getMainLooper())
+
+            t1 = thread {
+                while(hubConnection.connectionState == HubConnectionState.DISCONNECTED){
+                    try {
+                    hubConnection.stop()
+                    connectToSocket()
+                    sleep(10000)
+                    }catch (ex: InterruptedException){
+                        ex.printStackTrace()
+                        Log.d(TAG, "launchConnectionLoop failed")
+                    }
+                }
+                uiHandler.post {
+                    Log.d(TAG, "Connection restored!")
+                }
+            }
+
+
+    }
+
+    private fun connectToSocket() {
+        try {
+            hubConnection = HubConnectionBuilder
+                .create("${BASE_URL}refresh")
+                .build()
+
+            Log.d(TAG, "try to connect")
+            hubConnection.on(
+                "Refresh",
+                { message: String ->
+                    if (message.toInt() == args.screenId || message.toInt() == 0) {
+                        Log.d(TAG, "Socket message $message")
+                        viewModel.updateMedia(args.screenId)
+                    }
+                },
+                String::class.java
+            )
+            hubConnection.start()
+            hubConnection.onClosed {
+                Log.d(TAG, "connection lost state = ${hubConnection.connectionState}")
+                Log.d(TAG, "try to reconnect in hub Connection")
+                launchConnectionLoop()
+            }
+        } catch (ex: SocketTimeoutException) {
+            Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+            Toast.makeText(
+                requireContext(),
+                resources.getText(R.string.connection_exception),
+                Toast.LENGTH_LONG
+            ).show()
+        } catch (ex: Exception) {
+            Log.d(TAG, resources.getText(R.string.unexpected_error).toString())
+            Toast.makeText(
+                requireContext(),
+                resources.getText(R.string.unexpected_error),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+
 }

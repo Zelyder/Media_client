@@ -6,4 +6,5 @@ interface MediaRepository {
 
     //TODO: return Result<Media> вместо Media
     suspend fun getMedia(id: Int): Media
+    suspend fun getBgImageUrl(id: Int): String
 }

@@ -55,7 +55,7 @@ class PlayerFragment : Fragment() {
     companion object {
         private const val TAG = "PlayerFragment"
         private const val REFRESH_EVENT = "Refresh"
-        private const val CHANGE_BG_EVENT = "change_bg"
+        private const val CHANGE_BG_EVENT = "ChangeBackground"
 
     }
 
@@ -287,8 +287,8 @@ class PlayerFragment : Fragment() {
             hubConnection.on(
                 REFRESH_EVENT,
                 { message: String ->
+                    Log.d(TAG, "Socket event: $REFRESH_EVENT \n message $message")
                     if (message.toInt() == args.screenId || message.toInt() == 0) {
-                        Log.d(TAG, "Socket event: $REFRESH_EVENT \n message $message")
                         viewModel.updateMedia(args.screenId)
                     }
                 },
@@ -297,8 +297,9 @@ class PlayerFragment : Fragment() {
             hubConnection.on(
                 CHANGE_BG_EVENT,
                 { message: String ->
+                    Log.d(TAG, "Socket event: $CHANGE_BG_EVENT \n message: $message")
                     if (message.toInt() == args.screenId || message.toInt() == 0) {
-                        Log.d(TAG, "Socket event: $CHANGE_BG_EVENT \n message: $message")
+                        Log.d(TAG, "Socket event applied: $CHANGE_BG_EVENT \n message: $message")
                         viewModel.updateBgImage(args.screenId)
                     }
                 },

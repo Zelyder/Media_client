@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
@@ -33,6 +34,7 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
+import com.google.android.material.snackbar.Snackbar
 import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
 import com.microsoft.signalr.HubConnectionState
@@ -62,6 +64,7 @@ class PlayerFragment : Fragment() {
     private val viewModel: PlayerViewModel by viewModels { viewModelFactoryProvider().viewModelFactory() }
     private val args: PlayerFragmentArgs by navArgs()
 
+    private var rootView: FrameLayout? = null
     private var playerView: PlayerView? = null
     private var imageView: ImageView? = null
     private var progressBar: ProgressBar? = null
@@ -72,6 +75,7 @@ class PlayerFragment : Fragment() {
     private var lastModified = Calendar.getInstance().timeInMillis
 
     private lateinit var hubConnection: HubConnection
+    private var snackbar: Snackbar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,6 +95,8 @@ class PlayerFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        rootView = view.findViewById(R.id.root)
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
         progressBar = view.findViewById(R.id.progressBar)
@@ -127,6 +133,12 @@ class PlayerFragment : Fragment() {
         }
         viewModel.bgUrl.observe(this.viewLifecycleOwner) { bgUrl ->
             downloadImage(bgUrl)
+        }
+        viewModel.snackMsg.observe(this.viewLifecycleOwner) { msg ->
+            if (msg != null) {
+                snackbar = showSnackMsg(msg, Snackbar.LENGTH_SHORT)
+            }
+
         }
         viewModel.updateMedia(args.screenId)
     }
@@ -334,6 +346,8 @@ class PlayerFragment : Fragment() {
         }
         Glide.with(this)
             .load(imageURL)
+            .diskCacheStrategy(DiskCacheStrategy.NONE)
+            .skipMemoryCache(true)
             .into(object : CustomTarget<Drawable?>() {
                 override fun onResourceReady(
                     @NonNull resource: Drawable,
@@ -357,6 +371,13 @@ class PlayerFragment : Fragment() {
                 }
             })
     }
+
+    private fun showSnackMsg(msg: String, duration: Int): Snackbar {
+        val snackbar = Snackbar.make(this.rootView!!, msg, duration)
+        snackbar.show()
+        return snackbar
+    }
+
 
     private fun verifyPermissions(): Boolean {
 

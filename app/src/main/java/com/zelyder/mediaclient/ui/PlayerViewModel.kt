@@ -11,6 +11,7 @@ import com.zelyder.mediaclient.domain.repositories.MediaRepository
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -30,6 +31,9 @@ class PlayerViewModel(private val mediaRepository: MediaRepository) : ViewModel(
     private val _bgUrl: MutableLiveData<String> = MutableLiveData()
     val bgUrl: LiveData<String> get() = _bgUrl
 
+    private val _snackMsg: MutableLiveData<String?> = MutableLiveData()
+    val snackMsg: LiveData<String?> = _snackMsg
+
     private val exceptionHandler = CoroutineExceptionHandler { coroutineContext, throwable ->
         val name = coroutineContext[CoroutineName] ?: "unknown"
         val error = throwable.stackTraceToString()
@@ -47,6 +51,7 @@ class PlayerViewModel(private val mediaRepository: MediaRepository) : ViewModel(
 
     fun updateBgImage(id: Int) {
         viewModelScope.launch(exceptionHandler) {
+            _snackMsg.value = "Обновление картинки по умолчанию"
             _bgUrl.value = mediaRepository.getBgImageUrl(id)
         }
     }
@@ -64,13 +69,19 @@ class PlayerViewModel(private val mediaRepository: MediaRepository) : ViewModel(
                 try {
                     val fOut: OutputStream = FileOutputStream(imageFile)
                     image.compress(Bitmap.CompressFormat.JPEG, 100, fOut)
+                    val bos = ByteArrayOutputStream()
+                    val bitmapdata: ByteArray = bos.toByteArray()
+                    fOut.write(bitmapdata)
+                    fOut.flush()
                     fOut.close()
                 } catch (e: java.lang.Exception) {
                     e.printStackTrace()
                 }
                 Log.d(TAG, "IMAGE SAVED\n Path = $savedImagePath")
+                _snackMsg.value = "Картинка по умолчанию успешно обновлена!"
             } else {
                 Log.d(TAG, "SAVE ERROR")
+                _snackMsg.value = "Ошибка обновления картинки по умолчанию"
             }
         }
     }

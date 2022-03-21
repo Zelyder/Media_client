@@ -10,5 +10,9 @@ class MediaRepositoryImpl(private val remoteDataSource: RemoteDataSource): Media
         Media(remoteDataSource.getMediaPath(id), remoteDataSource.getMediaType(id)?.mediaType ?: "img")
     }
 
+    override suspend fun getBgImageUrl(id: Int): String = withContext(Dispatchers.IO){
+        remoteDataSource.getBgImage(id)
+    }
+
 
 }

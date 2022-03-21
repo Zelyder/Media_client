@@ -33,11 +33,15 @@ class TestDataSource: RemoteDataSource {
         )
     }
 
-    override suspend fun getMediaPath(id: Int): String {
+    override fun getMediaPath(id: Int): String {
         return "https://docs.microsoft.com/ru-ru/xamarin/android/platform/fragments/creating-a-fragment-images/fragment-lifecycle.png"
     }
 
     override suspend fun getMediaType(id: Int): MediaTypeDto {
         return MediaTypeDto("img")
+    }
+
+    override fun getBgImage(id: Int): String {
+        return "https://docs.microsoft.com/ru-ru/xamarin/android/platform/fragments/creating-a-fragment-images/fragment-lifecycle.png"
     }
 }

@@ -1,32 +1,40 @@
 package com.zelyder.mediaclient.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.os.*
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.annotation.NonNull
+import androidx.annotation.Nullable
+import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.target.Target
+import com.bumptech.glide.request.transition.Transition
 import com.bumptech.glide.signature.MediaStoreSignature
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
+import com.google.android.material.snackbar.Snackbar
 import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
 import com.microsoft.signalr.HubConnectionState
@@ -48,12 +56,15 @@ class PlayerFragment : Fragment() {
 
     companion object {
         private const val TAG = "PlayerFragment"
+        private const val REFRESH_EVENT = "Refresh"
+        private const val CHANGE_BG_EVENT = "ChangeBackground"
 
     }
 
     private val viewModel: PlayerViewModel by viewModels { viewModelFactoryProvider().viewModelFactory() }
     private val args: PlayerFragmentArgs by navArgs()
 
+    private var rootView: FrameLayout? = null
     private var playerView: PlayerView? = null
     private var imageView: ImageView? = null
     private var progressBar: ProgressBar? = null
@@ -64,6 +75,7 @@ class PlayerFragment : Fragment() {
     private var lastModified = Calendar.getInstance().timeInMillis
 
     private lateinit var hubConnection: HubConnection
+    private var snackbar: Snackbar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +95,8 @@ class PlayerFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        rootView = view.findViewById(R.id.root)
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
         progressBar = view.findViewById(R.id.progressBar)
@@ -116,6 +130,15 @@ class PlayerFragment : Fragment() {
             } else if (t1 != null && t1!!.isAlive) {
                 t1?.interrupt()
             }
+        }
+        viewModel.bgUrl.observe(this.viewLifecycleOwner) { bgUrl ->
+            downloadImage(bgUrl)
+        }
+        viewModel.snackMsg.observe(this.viewLifecycleOwner) { msg ->
+            if (msg != null) {
+                snackbar = showSnackMsg(msg, Snackbar.LENGTH_SHORT)
+            }
+
         }
         viewModel.updateMedia(args.screenId)
     }
@@ -274,11 +297,22 @@ class PlayerFragment : Fragment() {
 
             Log.d(TAG, "try to connect")
             hubConnection.on(
-                "Refresh",
+                REFRESH_EVENT,
                 { message: String ->
+                    Log.d(TAG, "Socket event: $REFRESH_EVENT \n message $message")
                     if (message.toInt() == args.screenId || message.toInt() == 0) {
-                        Log.d(TAG, "Socket message $message")
                         viewModel.updateMedia(args.screenId)
+                    }
+                },
+                String::class.java
+            )
+            hubConnection.on(
+                CHANGE_BG_EVENT,
+                { message: String ->
+                    Log.d(TAG, "Socket event: $CHANGE_BG_EVENT \n message: $message")
+                    if (message.toInt() == args.screenId || message.toInt() == 0) {
+                        Log.d(TAG, "Socket event applied: $CHANGE_BG_EVENT \n message: $message")
+                        viewModel.updateBgImage(args.screenId)
                     }
                 },
                 String::class.java
@@ -304,6 +338,62 @@ class PlayerFragment : Fragment() {
                 Toast.LENGTH_LONG
             ).show()
         }
+    }
+
+    private fun downloadImage(imageURL: String) {
+        if (!verifyPermissions()) {
+            return
+        }
+        Glide.with(this)
+            .load(imageURL)
+            .diskCacheStrategy(DiskCacheStrategy.NONE)
+            .skipMemoryCache(true)
+            .into(object : CustomTarget<Drawable?>() {
+                override fun onResourceReady(
+                    @NonNull resource: Drawable,
+                    @Nullable transition: Transition<in Drawable?>?
+                ) {
+                    val bitmap = (resource as BitmapDrawable).bitmap
+                    Log.d(TAG, "Saving Image...")
+                    viewModel.saveImage(
+                        bitmap,
+                        File("/storage/emulated/0/Pictures"),
+                        CACHED_IMAGE_NAME
+                    )
+                }
+
+                override fun onLoadCleared(@Nullable placeholder: Drawable?) {
+                    Log.d(TAG, "onLoadCleared")
+                }
+                override fun onLoadFailed(@Nullable errorDrawable: Drawable?) {
+                    super.onLoadFailed(errorDrawable)
+                    Log.d(TAG, "Failed to Download Image! Please try again later.")
+                }
+            })
+    }
+
+    private fun showSnackMsg(msg: String, duration: Int): Snackbar {
+        val snackbar = Snackbar.make(this.rootView!!, msg, duration)
+        snackbar.show()
+        return snackbar
+    }
+
+
+    private fun verifyPermissions(): Boolean {
+
+        // This will return the current Status
+        val permissionExternalMemory =
+            ActivityCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        if (permissionExternalMemory != PackageManager.PERMISSION_GRANTED) {
+            val storagePermissions = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            // If permission not granted then ask for permission real time.
+            ActivityCompat.requestPermissions(requireActivity(), storagePermissions, 1)
+            return false
+        }
+        return true
     }
 
 

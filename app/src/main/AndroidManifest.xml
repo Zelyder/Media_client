@@ -20,16 +20,18 @@
 
     <application
         android:name=".MyApp"
-        android:usesCleartextTraffic="true"
         android:allowBackup="false"
+        android:banner="@drawable/logo"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:logo="@drawable/logo"
+        android:requestLegacyExternalStorage="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.MediaClient"
-        android:logo="@drawable/logo"
-        android:banner="@drawable/logo"
+        android:usesCleartextTraffic="true"
         tools:targetApi="m">
-        <activity android:name=".ui.MainActivity"
+        <activity
+            android:name=".ui.MainActivity"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

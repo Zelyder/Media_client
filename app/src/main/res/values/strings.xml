@@ -12,4 +12,6 @@
     <string name="connection_exception">Connection Failed</string>
     <string name="unexpected_error">Unexpected error</string>
 
+    <string name="update_bg_image">Обновление картинки по умолчанию</string>
+
 </resources>

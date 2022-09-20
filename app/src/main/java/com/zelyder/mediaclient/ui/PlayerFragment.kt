@@ -58,6 +58,7 @@ class PlayerFragment : Fragment() {
         private const val TAG = "PlayerFragment"
         private const val REFRESH_EVENT = "Refresh"
         private const val CHANGE_BG_EVENT = "ChangeBackground"
+        private const val PING_EVENT = "Ping"
 
     }
 
@@ -296,6 +297,16 @@ class PlayerFragment : Fragment() {
                 .build()
 
             Log.d(TAG, "try to connect")
+            hubConnection.on(
+                PING_EVENT,
+                { message: String ->
+                    Log.d(TAG, "Socket event: $PING_EVENT \n message $message")
+                    if(message.toInt() == args.screenId) {
+                        hubConnection.send(PING_EVENT, "${args.screenId} OK")
+                    }
+                },
+                String::class.java
+            )
             hubConnection.on(
                 REFRESH_EVENT,
                 { message: String ->

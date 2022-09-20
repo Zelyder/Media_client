@@ -74,6 +74,7 @@ class PlayerFragment : Fragment() {
     private var isVideo = false
     private var t1: Thread? = null
     private var lastModified = Calendar.getInstance().timeInMillis
+    private var isForeground = true
 
     private lateinit var hubConnection: HubConnection
     private var snackbar: Snackbar? = null
@@ -147,6 +148,7 @@ class PlayerFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
+        isForeground = true
     }
 
     override fun onResume() {
@@ -156,6 +158,7 @@ class PlayerFragment : Fragment() {
 
     override fun onStop() {
         findNavController().previousBackStackEntry?.savedStateHandle?.set(KEY_IS_FIRST_OPEN, false)
+        isForeground = false
         super.onStop()
     }
 
@@ -301,7 +304,7 @@ class PlayerFragment : Fragment() {
                 PING_EVENT,
                 { message: String ->
                     Log.d(TAG, "Socket event: $PING_EVENT \n message $message")
-                    if(message.toInt() == args.screenId) {
+                    if(message.toInt() == args.screenId && isForeground) {
                         hubConnection.send(PING_EVENT, "${args.screenId} OK")
                     }
                 },

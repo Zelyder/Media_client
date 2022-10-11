@@ -14,8 +14,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.annotation.NonNull
-import androidx.annotation.Nullable
 import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -47,6 +45,7 @@ import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
 import java.io.File
 import java.lang.Thread.sleep
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.util.*
 import kotlin.concurrent.thread
@@ -59,6 +58,8 @@ class PlayerFragment : Fragment() {
         private const val REFRESH_EVENT = "Refresh"
         private const val CHANGE_BG_EVENT = "ChangeBackground"
         private const val PING_EVENT = "Ping"
+        private const val PING_INTERVAL = 3000L
+        private const val CONNECTION_LOOP_INTERVAL = 10000L
 
     }
 
@@ -76,7 +77,9 @@ class PlayerFragment : Fragment() {
     private var lastModified = Calendar.getInstance().timeInMillis
     private var isForeground = true
 
-    private lateinit var hubConnection: HubConnection
+    private val hubConnection: HubConnection = HubConnectionBuilder
+        .create("${BASE_URL}refresh")
+        .build()
     private var snackbar: Snackbar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,6 +88,7 @@ class PlayerFragment : Fragment() {
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
         connectToSocket()
+        runPingLoop()
     }
 
     override fun onCreateView(
@@ -279,10 +283,14 @@ class PlayerFragment : Fragment() {
                 try {
                     hubConnection.stop()
                     connectToSocket()
-                    sleep(10000)
+                    sleep(CONNECTION_LOOP_INTERVAL)
                 } catch (ex: InterruptedException) {
                     ex.printStackTrace()
-                    Log.d(TAG, "launchConnectionLoop failed")
+                    Log.e(TAG, "launchConnectionLoop failed")
+                } catch (ex: SocketException) {
+                    Log.e(TAG, resources.getText(R.string.connection_exception).toString())
+                } catch (ex: Exception) {
+                    Log.e(TAG, resources.getText(R.string.unexpected_error).toString())
                 }
             }
             uiHandler.post {
@@ -290,26 +298,32 @@ class PlayerFragment : Fragment() {
             }
         }
 
+    }
 
+    private fun runPingLoop() {
+        t1 = thread {
+            while (true) {
+                try {
+                    if (hubConnection.connectionState == HubConnectionState.CONNECTED && isForeground) {
+                        hubConnection.send(PING_EVENT, "${args.screenId} OK")
+                        Log.d(TAG, resources.getText(R.string.send_ping).toString() + args.screenId)
+                    }
+                    sleep(PING_INTERVAL)
+                } catch (ex: SocketTimeoutException) {
+                    Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                } catch (ex: SocketException) {
+                    Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                } catch (ex: Exception) {
+                    Log.d(TAG, "Exception in runPingLoop")
+                    ex.printStackTrace()
+                }
+            }
+        }
     }
 
     private fun connectToSocket() {
         try {
-            hubConnection = HubConnectionBuilder
-                .create("${BASE_URL}refresh")
-                .build()
-
             Log.d(TAG, "try to connect")
-            hubConnection.on(
-                PING_EVENT,
-                { message: String ->
-                    Log.d(TAG, "Socket event: $PING_EVENT \n message $message")
-                    if(message.toInt() == args.screenId && isForeground) {
-                        hubConnection.send(PING_EVENT, "${args.screenId} OK")
-                    }
-                },
-                String::class.java
-            )
             hubConnection.on(
                 REFRESH_EVENT,
                 { message: String ->
@@ -339,18 +353,10 @@ class PlayerFragment : Fragment() {
             }
         } catch (ex: SocketTimeoutException) {
             Log.d(TAG, resources.getText(R.string.connection_exception).toString())
-            Toast.makeText(
-                requireContext(),
-                resources.getText(R.string.connection_exception),
-                Toast.LENGTH_LONG
-            ).show()
+        } catch (ex: SocketException) {
+            Log.d(TAG, resources.getText(R.string.connection_exception).toString())
         } catch (ex: Exception) {
             Log.d(TAG, resources.getText(R.string.unexpected_error).toString())
-            Toast.makeText(
-                requireContext(),
-                resources.getText(R.string.unexpected_error),
-                Toast.LENGTH_LONG
-            ).show()
         }
     }
 
@@ -364,8 +370,8 @@ class PlayerFragment : Fragment() {
             .skipMemoryCache(true)
             .into(object : CustomTarget<Drawable?>() {
                 override fun onResourceReady(
-                    @NonNull resource: Drawable,
-                    @Nullable transition: Transition<in Drawable?>?
+                    resource: Drawable,
+                    transition: Transition<in Drawable?>?
                 ) {
                     val bitmap = (resource as BitmapDrawable).bitmap
                     Log.d(TAG, "Saving Image...")
@@ -376,10 +382,11 @@ class PlayerFragment : Fragment() {
                     )
                 }
 
-                override fun onLoadCleared(@Nullable placeholder: Drawable?) {
+                override fun onLoadCleared(placeholder: Drawable?) {
                     Log.d(TAG, "onLoadCleared")
                 }
-                override fun onLoadFailed(@Nullable errorDrawable: Drawable?) {
+
+                override fun onLoadFailed(errorDrawable: Drawable?) {
                     super.onLoadFailed(errorDrawable)
                     Log.d(TAG, "Failed to Download Image! Please try again later.")
                 }

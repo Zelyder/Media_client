@@ -11,6 +11,7 @@
     <string name="screen_ip_hint">Server ip</string>
     <string name="connection_exception">Connection Failed</string>
     <string name="unexpected_error">Unexpected error</string>
+    <string name="send_ping">Send ping for screen: </string>
 
     <string name="update_bg_image">Обновление картинки по умолчанию</string>
 

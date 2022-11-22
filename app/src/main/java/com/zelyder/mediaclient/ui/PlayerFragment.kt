@@ -74,6 +74,7 @@ class PlayerFragment : Fragment() {
     private var url = ""
     private var isVideo = false
     private var t1: Thread? = null
+    private var t2: Thread? = null
     private var lastModified = Calendar.getInstance().timeInMillis
     private var isForeground = true
 
@@ -88,7 +89,6 @@ class PlayerFragment : Fragment() {
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
         connectToSocket()
-        runPingLoop()
     }
 
     override fun onCreateView(
@@ -169,6 +169,8 @@ class PlayerFragment : Fragment() {
     override fun onDestroy() {
         super.onDestroy()
         hubConnection.stop()
+        t1?.interrupt()
+        t2?.interrupt()
     }
 
     override fun onDestroyView() {
@@ -287,7 +289,10 @@ class PlayerFragment : Fragment() {
                 } catch (ex: InterruptedException) {
                     ex.printStackTrace()
                     Log.e(TAG, "launchConnectionLoop failed")
-                } catch (ex: SocketException) {
+                } catch (ex: ConcurrentModificationException){
+                    Log.e(TAG, resources.getString(R.string.concurrent_modification_exception))
+                }
+                catch (ex: SocketException) {
                     Log.e(TAG, resources.getText(R.string.connection_exception).toString())
                 } catch (ex: Exception) {
                     Log.e(TAG, resources.getText(R.string.unexpected_error).toString())
@@ -296,12 +301,13 @@ class PlayerFragment : Fragment() {
             uiHandler.post {
                 Log.d(TAG, "Connection restored!")
             }
+            runPingLoop()
         }
 
     }
 
     private fun runPingLoop() {
-        t1 = thread {
+        t2 = thread {
             while (true) {
                 try {
                     if (hubConnection.connectionState == HubConnectionState.CONNECTED && isForeground) {
@@ -313,6 +319,8 @@ class PlayerFragment : Fragment() {
                     Log.d(TAG, resources.getText(R.string.connection_exception).toString())
                 } catch (ex: SocketException) {
                     Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                } catch (ex: ConcurrentModificationException){
+                    Log.e(TAG, resources.getString(R.string.concurrent_modification_exception))
                 } catch (ex: Exception) {
                     Log.d(TAG, "Exception in runPingLoop")
                     ex.printStackTrace()

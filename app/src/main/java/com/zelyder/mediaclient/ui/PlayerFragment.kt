@@ -74,16 +74,23 @@ class PlayerFragment : Fragment() {
     private var url = ""
     private var isVideo = false
     private var t1: Thread? = null
+    private var t2: Thread? = null
     private var lastModified = Calendar.getInstance().timeInMillis
     private var isForeground = true
 
-    private val hubConnection: HubConnection = HubConnectionBuilder
-        .create("${BASE_URL}refresh")
-        .build()
+    private lateinit var hubConnection: HubConnection
     private var snackbar: Snackbar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            hubConnection =  HubConnectionBuilder
+                .create("${BASE_URL}refresh")
+                .build()
+        } catch (ex: Exception) {
+                Log.e(TAG, resources.getText(R.string.unexpected_error).toString())
+        }
+
 
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
@@ -169,6 +176,8 @@ class PlayerFragment : Fragment() {
     override fun onDestroy() {
         super.onDestroy()
         hubConnection.stop()
+        t1?.interrupt()
+        t2?.interrupt()
     }
 
     override fun onDestroyView() {
@@ -286,22 +295,36 @@ class PlayerFragment : Fragment() {
                     sleep(CONNECTION_LOOP_INTERVAL)
                 } catch (ex: InterruptedException) {
                     ex.printStackTrace()
-                    Log.e(TAG, "launchConnectionLoop failed")
-                } catch (ex: SocketException) {
-                    Log.e(TAG, resources.getText(R.string.connection_exception).toString())
+                    uiHandler.post {
+                        Log.e(TAG, "launchConnectionLoop failed")
+                    }
+                } catch (ex: ConcurrentModificationException){
+                    uiHandler.post {
+                        Log.e(TAG, resources.getString(R.string.concurrent_modification_exception))
+                    }
+                }
+                catch (ex: SocketException) {
+                    uiHandler.post {
+                        Log.e(TAG, resources.getText(R.string.connection_exception).toString())
+                    }
                 } catch (ex: Exception) {
-                    Log.e(TAG, resources.getText(R.string.unexpected_error).toString())
+                    uiHandler.post {
+                        Log.e(TAG, resources.getText(R.string.unexpected_error).toString())
+                    }
                 }
             }
             uiHandler.post {
                 Log.d(TAG, "Connection restored!")
             }
+            runPingLoop()
         }
 
     }
 
     private fun runPingLoop() {
-        t1 = thread {
+        val uiHandler = Handler(Looper.getMainLooper())
+
+        t2 = thread {
             while (true) {
                 try {
                     if (hubConnection.connectionState == HubConnectionState.CONNECTED && isForeground) {
@@ -310,12 +333,22 @@ class PlayerFragment : Fragment() {
                     }
                     sleep(PING_INTERVAL)
                 } catch (ex: SocketTimeoutException) {
-                    Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                    uiHandler.post {
+                        Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                    }
                 } catch (ex: SocketException) {
-                    Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                    uiHandler.post {
+                        Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                    }
+                } catch (ex: ConcurrentModificationException){
+                    uiHandler.post {
+                        Log.e(TAG, resources.getString(R.string.concurrent_modification_exception))
+                    }
                 } catch (ex: Exception) {
-                    Log.d(TAG, "Exception in runPingLoop")
-                    ex.printStackTrace()
+                    uiHandler.post {
+                        Log.d(TAG, "Exception in runPingLoop")
+                        ex.printStackTrace()
+                    }
                 }
             }
         }
@@ -323,6 +356,10 @@ class PlayerFragment : Fragment() {
 
     private fun connectToSocket() {
         try {
+            hubConnection =  HubConnectionBuilder
+                .create("${BASE_URL}refresh")
+                .build()
+
             Log.d(TAG, "try to connect")
             hubConnection.on(
                 REFRESH_EVENT,

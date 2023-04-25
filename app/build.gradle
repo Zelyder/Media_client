@@ -8,15 +8,15 @@ plugins {
 
 
 android {
-    compileSdkVersion 30
+    compileSdkVersion 31
     buildToolsVersion "30.0.3"
 
     defaultConfig {
         applicationId "com.zelyder.mediaclient"
         minSdkVersion 21
-        targetSdkVersion 30
-        versionCode 3
-        versionName "1.2"
+        targetSdkVersion 31
+        versionCode 6
+        versionName "2.0"
 
     }
     compileOptions {
@@ -63,7 +63,7 @@ dependencies {
 
 
     //Network
-    implementation 'com.squareup.okhttp3:okhttp:4.9.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.2'
     implementation "com.squareup.retrofit2:retrofit:2.9.0"
     implementation "com.squareup.retrofit2:converter-scalars:2.9.0"
     implementation 'com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0'

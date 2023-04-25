@@ -1,26 +1,38 @@
 package com.zelyder.mediaclient.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.content.pm.PackageManager
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.os.*
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.target.Target
+import com.bumptech.glide.request.transition.Transition
 import com.bumptech.glide.signature.MediaStoreSignature
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
+import com.google.android.material.snackbar.Snackbar
 import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
 import com.microsoft.signalr.HubConnectionState
@@ -33,6 +45,7 @@ import com.zelyder.mediaclient.ui.core.GlideApp
 import com.zelyder.mediaclient.viewModelFactoryProvider
 import java.io.File
 import java.lang.Thread.sleep
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.util.*
 import kotlin.concurrent.thread
@@ -42,27 +55,47 @@ class PlayerFragment : Fragment() {
 
     companion object {
         private const val TAG = "PlayerFragment"
+        private const val REFRESH_EVENT = "Refresh"
+        private const val CHANGE_BG_EVENT = "ChangeBackground"
+        private const val PING_EVENT = "Ping"
+        private const val PING_INTERVAL = 3000L
+        private const val CONNECTION_LOOP_INTERVAL = 10000L
 
     }
 
     private val viewModel: PlayerViewModel by viewModels { viewModelFactoryProvider().viewModelFactory() }
     private val args: PlayerFragmentArgs by navArgs()
 
+    private var rootView: FrameLayout? = null
     private var playerView: PlayerView? = null
     private var imageView: ImageView? = null
+    private var progressBar: ProgressBar? = null
     private var player: SimpleExoPlayer? = null
     private var url = ""
     private var isVideo = false
     private var t1: Thread? = null
+    private var t2: Thread? = null
+    private var lastModified = Calendar.getInstance().timeInMillis
+    private var isForeground = true
 
     private lateinit var hubConnection: HubConnection
+    private var snackbar: Snackbar? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            hubConnection =  HubConnectionBuilder
+                .create("${BASE_URL}refresh")
+                .build()
+        } catch (ex: Exception) {
+                Log.e(TAG, resources.getText(R.string.unexpected_error).toString())
+        }
+
 
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
         // live update
         connectToSocket()
+        runPingLoop()
     }
 
     override fun onCreateView(
@@ -75,13 +108,17 @@ class PlayerFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        rootView = view.findViewById(R.id.root)
         playerView = view.findViewById(R.id.video_view)
         imageView = view.findViewById(R.id.ivContent)
+        progressBar = view.findViewById(R.id.progressBar)
 
         viewModel.media.observe(this.viewLifecycleOwner) {
             url = it.url
             if (it.type == "img" || it.type == "gif") {
                 isVideo = false
+                lastModified = Calendar.getInstance().timeInMillis
                 switchToImage()
                 initializeImage()
             } else if (it.type == "vid") {
@@ -103,9 +140,18 @@ class PlayerFragment : Fragment() {
                     Log.d(TAG, "try to reconnect in connection changed")
                     launchConnectionLoop()
                 }
-            } else if(t1 != null && t1!!.isAlive){
+            } else if (t1 != null && t1!!.isAlive) {
                 t1?.interrupt()
             }
+        }
+        viewModel.bgUrl.observe(this.viewLifecycleOwner) { bgUrl ->
+            downloadImage(bgUrl)
+        }
+        viewModel.snackMsg.observe(this.viewLifecycleOwner) { msg ->
+            if (msg != null) {
+                snackbar = showSnackMsg(msg, Snackbar.LENGTH_SHORT)
+            }
+
         }
         viewModel.updateMedia(args.screenId)
     }
@@ -113,6 +159,7 @@ class PlayerFragment : Fragment() {
     override fun onStart() {
         super.onStart()
         CURRENT_FRAGMENT = PLAYER_FRAGMENT
+        isForeground = true
     }
 
     override fun onResume() {
@@ -122,12 +169,15 @@ class PlayerFragment : Fragment() {
 
     override fun onStop() {
         findNavController().previousBackStackEntry?.savedStateHandle?.set(KEY_IS_FIRST_OPEN, false)
+        isForeground = false
         super.onStop()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         hubConnection.stop()
+        t1?.interrupt()
+        t2?.interrupt()
     }
 
     override fun onDestroyView() {
@@ -152,11 +202,36 @@ class PlayerFragment : Fragment() {
 
     private fun initializeImage() {
         if (imageView != null) {
+            progressBar?.visibility = View.VISIBLE
             GlideApp.with(this)
                 .load(url)
                 .error(R.drawable.ic_close)
+                .listener(object : RequestListener<Drawable> {
+                    override fun onLoadFailed(
+                        e: GlideException?,
+                        model: Any?,
+                        target: Target<Drawable>?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        progressBar?.visibility = View.GONE
+                        return false
+                    }
+
+                    override fun onResourceReady(
+                        resource: Drawable?,
+                        model: Any?,
+                        target: Target<Drawable>?,
+                        dataSource: DataSource?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        progressBar?.visibility = View.GONE
+                        return false
+                    }
+
+                })
                 .skipMemoryCache(true)
-                .signature(MediaStoreSignature("img", Calendar.getInstance().timeInMillis, 0))
+                .thumbnail(0.25f)
+                .signature(MediaStoreSignature("img", lastModified, 0))
                 .into(imageView!!)
 
         }
@@ -212,38 +287,97 @@ class PlayerFragment : Fragment() {
     private fun launchConnectionLoop() {
         val uiHandler = Handler(Looper.getMainLooper())
 
-            t1 = thread {
-                while(hubConnection.connectionState == HubConnectionState.DISCONNECTED){
-                    try {
+        t1 = thread {
+            while (hubConnection.connectionState == HubConnectionState.DISCONNECTED) {
+                try {
                     hubConnection.stop()
                     connectToSocket()
-                    sleep(10000)
-                    }catch (ex: InterruptedException){
-                        ex.printStackTrace()
-                        Log.d(TAG, "launchConnectionLoop failed")
+                    sleep(CONNECTION_LOOP_INTERVAL)
+                } catch (ex: InterruptedException) {
+                    ex.printStackTrace()
+                    uiHandler.post {
+                        Log.e(TAG, "launchConnectionLoop failed")
+                    }
+                } catch (ex: ConcurrentModificationException){
+                    uiHandler.post {
+                        Log.e(TAG, resources.getString(R.string.concurrent_modification_exception))
                     }
                 }
-                uiHandler.post {
-                    Log.d(TAG, "Connection restored!")
+                catch (ex: SocketException) {
+                    uiHandler.post {
+                        Log.e(TAG, resources.getText(R.string.connection_exception).toString())
+                    }
+                } catch (ex: Exception) {
+                    uiHandler.post {
+                        Log.e(TAG, resources.getText(R.string.unexpected_error).toString())
+                    }
                 }
             }
+            uiHandler.post {
+                Log.d(TAG, "Connection restored!")
+            }
+            runPingLoop()
+        }
 
+    }
 
+    private fun runPingLoop() {
+        val uiHandler = Handler(Looper.getMainLooper())
+
+        t2 = thread {
+            while (true) {
+                try {
+                    if (hubConnection.connectionState == HubConnectionState.CONNECTED && isForeground) {
+                        hubConnection.send(PING_EVENT, "${args.screenId} OK")
+                        Log.d(TAG, resources.getText(R.string.send_ping).toString() + args.screenId)
+                    }
+                    sleep(PING_INTERVAL)
+                } catch (ex: SocketTimeoutException) {
+                    uiHandler.post {
+                        Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                    }
+                } catch (ex: SocketException) {
+                    uiHandler.post {
+                        Log.d(TAG, resources.getText(R.string.connection_exception).toString())
+                    }
+                } catch (ex: ConcurrentModificationException){
+                    uiHandler.post {
+                        Log.e(TAG, resources.getString(R.string.concurrent_modification_exception))
+                    }
+                } catch (ex: Exception) {
+                    uiHandler.post {
+                        Log.d(TAG, "Exception in runPingLoop")
+                        ex.printStackTrace()
+                    }
+                }
+            }
+        }
     }
 
     private fun connectToSocket() {
         try {
-            hubConnection = HubConnectionBuilder
+            hubConnection =  HubConnectionBuilder
                 .create("${BASE_URL}refresh")
                 .build()
 
             Log.d(TAG, "try to connect")
             hubConnection.on(
-                "Refresh",
+                REFRESH_EVENT,
                 { message: String ->
+                    Log.d(TAG, "Socket event: $REFRESH_EVENT \n message $message")
                     if (message.toInt() == args.screenId || message.toInt() == 0) {
-                        Log.d(TAG, "Socket message $message")
                         viewModel.updateMedia(args.screenId)
+                    }
+                },
+                String::class.java
+            )
+            hubConnection.on(
+                CHANGE_BG_EVENT,
+                { message: String ->
+                    Log.d(TAG, "Socket event: $CHANGE_BG_EVENT \n message: $message")
+                    if (message.toInt() == args.screenId || message.toInt() == 0) {
+                        Log.d(TAG, "Socket event applied: $CHANGE_BG_EVENT \n message: $message")
+                        viewModel.updateBgImage(args.screenId)
                     }
                 },
                 String::class.java
@@ -256,19 +390,68 @@ class PlayerFragment : Fragment() {
             }
         } catch (ex: SocketTimeoutException) {
             Log.d(TAG, resources.getText(R.string.connection_exception).toString())
-            Toast.makeText(
-                requireContext(),
-                resources.getText(R.string.connection_exception),
-                Toast.LENGTH_LONG
-            ).show()
+        } catch (ex: SocketException) {
+            Log.d(TAG, resources.getText(R.string.connection_exception).toString())
         } catch (ex: Exception) {
             Log.d(TAG, resources.getText(R.string.unexpected_error).toString())
-            Toast.makeText(
-                requireContext(),
-                resources.getText(R.string.unexpected_error),
-                Toast.LENGTH_LONG
-            ).show()
         }
+    }
+
+    private fun downloadImage(imageURL: String) {
+        if (!verifyPermissions()) {
+            return
+        }
+        Glide.with(this)
+            .load(imageURL)
+            .diskCacheStrategy(DiskCacheStrategy.NONE)
+            .skipMemoryCache(true)
+            .into(object : CustomTarget<Drawable?>() {
+                override fun onResourceReady(
+                    resource: Drawable,
+                    transition: Transition<in Drawable?>?
+                ) {
+                    val bitmap = (resource as BitmapDrawable).bitmap
+                    Log.d(TAG, "Saving Image...")
+                    viewModel.saveImage(
+                        bitmap,
+                        File("/storage/emulated/0/Pictures"),
+                        CACHED_IMAGE_NAME
+                    )
+                }
+
+                override fun onLoadCleared(placeholder: Drawable?) {
+                    Log.d(TAG, "onLoadCleared")
+                }
+
+                override fun onLoadFailed(errorDrawable: Drawable?) {
+                    super.onLoadFailed(errorDrawable)
+                    Log.d(TAG, "Failed to Download Image! Please try again later.")
+                }
+            })
+    }
+
+    private fun showSnackMsg(msg: String, duration: Int): Snackbar {
+        val snackbar = Snackbar.make(this.rootView!!, msg, duration)
+        snackbar.show()
+        return snackbar
+    }
+
+
+    private fun verifyPermissions(): Boolean {
+
+        // This will return the current Status
+        val permissionExternalMemory =
+            ActivityCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        if (permissionExternalMemory != PackageManager.PERMISSION_GRANTED) {
+            val storagePermissions = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            // If permission not granted then ask for permission real time.
+            ActivityCompat.requestPermissions(requireActivity(), storagePermissions, 1)
+            return false
+        }
+        return true
     }
 
 

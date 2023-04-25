@@ -21,11 +21,12 @@ class RemoteDataSourceImpl(private val mediaApi: MediaApi) : RemoteDataSource {
         private const val TAG = "RemoteDataSourceImpl"
     }
 
-    override suspend fun getMediaPath(id: Int): String = withContext(Dispatchers.IO) {
-        "${BASE_URL}api/screens/$id/content"
-    }
+    override fun getMediaPath(id: Int): String = "${BASE_URL}api/screens/$id/content"
 
     override suspend fun getMediaType(id: Int): MediaTypeDto = withContext(Dispatchers.IO) {
         mediaApi.getMediaTypeByScreenId(id)
     }
+
+    override fun getBgImage(id: Int): String  = "${BASE_URL}api/background/$id"
+
 }
